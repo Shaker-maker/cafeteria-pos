@@ -1,0 +1,4317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cafeteria POS System</title>
+    <meta name="description" content="School Cafeteria Point of Sale System with M-Pesa Integration">
+    <meta name="theme-color" content="#4CAF50">
+    <style>
+        :root {
+            --bg-primary: #f5f5f5;
+            --bg-secondary: #ffffff;
+            --text-primary: #333;
+            --text-secondary: #666;
+            --border-color: #ddd;
+            --card-shadow: rgba(0,0,0,0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --border-color: #444;
+            --card-shadow: rgba(0,0,0,0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background 0.3s, color 0.3s;
+            padding-top: max(0px, env(safe-area-inset-top));
+            padding-left: max(0px, env(safe-area-inset-left));
+            padding-right: max(0px, env(safe-area-inset-right));
+        }
+
+        .theme-toggle {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #667eea;
+            border: none;
+            cursor: pointer;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 999;
+            transition: transform 0.2s;
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1);
+        }
+
+        @media (max-width: 768px) {
+            .theme-toggle {
+                position: fixed;
+                bottom: auto;
+                top: 50%;
+                right: 12px;
+                transform: translateY(-50%);
+                width: 48px;
+                height: 48px;
+                font-size: 1.3rem;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            }
+
+            .theme-toggle:hover {
+                transform: translateY(-50%) scale(1.1);
+            }
+        }
+
+        /* ====== LOGIN SCREEN ====== */
+        .login-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            padding: 20px;
+        }
+
+        .login-screen.hidden {
+            display: none;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .login-header {
+            margin-bottom: 30px;
+        }
+
+        .login-logo {
+            font-size: 60px;
+            margin-bottom: 15px;
+        }
+
+        .login-header h1 {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 5px;
+            font-weight: 700;
+        }
+
+        .login-header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .pin-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .pin-input-group label {
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+            text-align: left;
+        }
+
+        .pin-input-group input {
+            padding: 14px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-align: center;
+            transition: border-color 0.3s;
+        }
+
+        .pin-input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .login-btn {
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .login-btn:active {
+            transform: translateY(0);
+        }
+
+        .login-error {
+            color: #dc3545;
+            background: #f8d7da;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            border: 1px solid #f5c6cb;
+        }
+
+        .login-hint {
+            font-size: 12px;
+            color: #999;
+            margin-top: 10px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 16px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: nowrap;
+            gap: 0.75rem;
+            min-height: 60px;
+        }
+
+        .header-left {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.25rem;
+            white-space: nowrap;
+        }
+
+        .header .status {
+            font-size: 0.875rem;
+            opacity: 0.95;
+            padding: 4px 12px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            display: inline-block;
+        }
+
+        .header .status.online {
+            background: rgba(72, 187, 120, 0.2);
+        }
+
+        .header .status.offline {
+            background: rgba(245, 158, 11, 0.2);
+        }
+
+        /* User Profile Button & Menu */
+        .user-profile-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            position: relative;
+            z-index: 200;
+            flex-shrink: 0;
+            padding: 0;
+        }
+
+        .user-profile-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+        }
+
+        .user-profile-btn:active {
+            transform: scale(0.95);
+        }
+
+        .user-menu {
+            position: absolute;
+            top: 60px;
+            right: 1rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            min-width: 200px;
+            z-index: 199;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(-10px) scale(0.95);
+            transition: all 0.2s ease;
+        }
+
+        .user-menu.active {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0) scale(1);
+        }
+
+        .user-menu-item {
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+
+        .user-menu-label {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .user-menu-value {
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: right;
+            word-break: break-word;
+        }
+
+        .user-menu-logout {
+            width: 100%;
+            padding: 12px 16px;
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            cursor: pointer;
+            text-align: left;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: background 0.2s ease;
+        }
+
+        .user-menu-logout:hover {
+            background: rgba(255, 0, 0, 0.1);
+            color: #ff6b6b;
+        }
+
+        .user-menu-logout:active {
+            background: rgba(255, 0, 0, 0.2);
+        }
+
+        .vendor-badge {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 8px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        }
+
+        /* Mobile-specific vendor badge */
+        .vendor-badge-mobile {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 10px 12px;
+                gap: 0;
+                position: relative;
+                min-height: 56px;
+            }
+
+            .header-left {
+                min-width: 0;
+                flex: 1;
+            }
+
+            .header h1 {
+                font-size: 1.25rem;
+                margin: 0;
+                padding: 0;
+            }
+
+            .header .status {
+                display: none;
+            }
+
+            .user-profile-btn {
+                position: absolute;
+                right: 0.75rem;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 36px;
+                height: 36px;
+                font-size: 1.1rem;
+                flex-shrink: 0;
+                z-index: 200;
+            }
+
+            .user-menu {
+                top: 50px;
+                right: 0.75rem;
+                min-width: 180px;
+            }
+
+            .tabs {
+                padding: 0.75rem 0;
+                gap: 0.5rem;
+                margin-top: 0.5rem;
+            }
+
+            .tab {
+                padding: 0.75rem 0.5rem;
+                font-size: 0.85rem;
+                gap: 0.25rem;
+            }
+
+            .vendor-badge {
+                display: none;
+            }
+
+            .vendor-badge-mobile {
+                display: none;
+            }
+
+            .vendor-circle {
+                width: 44px;
+                height: 44px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 700;
+                font-size: 16px;
+                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+                cursor: pointer;
+                border: 3px solid white;
+                transition: transform 0.2s;
+                -webkit-tap-highlight-color: transparent;
+            }
+
+            .vendor-circle:active {
+                transform: scale(0.95);
+            }
+
+            .vendor-dropdown {
+                position: absolute;
+                top: 52px;
+                right: 0;
+                background: white;
+                border-radius: 12px;
+                padding: 12px;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+                min-width: 180px;
+                display: none;
+                animation: dropdownSlide 0.2s ease-out;
+            }
+
+            .vendor-dropdown.active {
+                display: block;
+            }
+
+            @keyframes dropdownSlide {
+                from {
+                    opacity: 0;
+                    transform: translateY(-10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            .vendor-dropdown-info {
+                padding: 8px 0;
+                border-bottom: 1px solid #e2e8f0;
+                margin-bottom: 8px;
+            }
+
+            .vendor-dropdown-name {
+                font-weight: 600;
+                color: #2d3748;
+                font-size: 14px;
+                margin-bottom: 4px;
+            }
+
+            .vendor-dropdown-till {
+                font-size: 12px;
+                color: #718096;
+            }
+
+            .vendor-dropdown-btn {
+                width: 100%;
+                padding: 8px 12px;
+                background: #667eea;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-size: 13px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: background 0.2s;
+            }
+
+            .vendor-dropdown-btn:active {
+                background: #5568d3;
+                transform: scale(0.98);
+            }
+        }
+
+        .vendor-avatar {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: white;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .vendor-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            flex: 1;
+        }
+
+        .vendor-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: white;
+            line-height: 1.2;
+        }
+
+        .vendor-till {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.8);
+            line-height: 1.2;
+        }
+
+        .vendor-switch-btn {
+            width: 32px;
+            height: 32px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .vendor-switch-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: rotate(180deg);
+        }
+
+        .vendor-switch-btn:focus {
+            outline: 2px solid white;
+            outline-offset: 2px;
+        }
+
+        .vendor-switch-btn:active {
+            transform: rotate(180deg) scale(0.95);
+        }
+
+        @media (max-width: 768px) {
+            * {
+                -webkit-tap-highlight-color: transparent;
+            }
+
+            html {
+                scroll-behavior: smooth;
+            }
+
+            body {
+                padding-top: env(safe-area-inset-top);
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+
+            input, select, textarea {
+                font-size: 16px !important;
+            }
+
+            .header {
+                padding: 0.75rem;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+            }
+
+            .header h1 {
+                font-size: 1.25rem;
+            }
+
+            .header .status {
+                font-size: 0.75rem;
+            }
+
+            .vendor-badge {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .content {
+                padding: 0.5rem;
+            }
+
+            .menu-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                gap: 0.75rem;
+            }
+
+            .menu-item {
+                padding: 14px;
+                min-height: 80px;
+            }
+
+            .menu-item:hover {
+                transform: none;
+            }
+
+            .menu-item .name {
+                font-size: 0.875rem;
+            }
+
+            .menu-item .price {
+                font-size: 1rem;
+            }
+
+            .category-section h3 {
+                font-size: 1rem;
+                margin-bottom: 0.5rem;
+            }
+
+            .cart {
+                padding: 0.75rem;
+                margin-top: 0.75rem;
+            }
+
+            .cart h2 {
+                font-size: 1.125rem;
+            }
+
+            /* ===== BOTTOM SHEET CART (MOBILE) ===== */
+            .cart-bottom-sheet {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: var(--bg-secondary);
+                border-radius: 20px 20px 0 0;
+                box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+                z-index: 999;
+                transition: height 0.3s ease;
+                display: none;
+                flex-direction: column;
+                max-height: 90vh;
+                height: 64px;
+            }
+
+            @media (max-width: 768px) {
+                .cart-bottom-sheet {
+                    display: flex;
+                }
+            }
+
+            .cart-collapsed {
+                height: 64px;
+            }
+
+            .cart-expanded {
+                height: 70vh;
+                max-height: 600px;
+            }
+
+            .cart-header {
+                padding: 8px 16px;
+                border-bottom: none;
+                cursor: pointer;
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+                user-select: none;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                min-height: 64px;
+                border-radius: 20px 20px 0 0;
+                gap: 1rem;
+            }
+
+            .cart-header.expanded {
+                border-bottom: 1px solid var(--border-color);
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                border-radius: 20px 20px 0 0;
+            }
+
+            .cart-handle {
+                display: none;
+            }
+
+            .cart-header:active .cart-handle {
+                display: none;
+            }
+
+            .cart-header-info {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                width: 100%;
+                font-size: 0.9rem;
+                margin: 0;
+                gap: 1rem;
+                flex: 1;
+            }
+
+            .cart-header.expanded .cart-header-info {
+                margin: 0;
+            }
+
+            .cart-header-title {
+                font-weight: 600;
+                color: white;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 1rem;
+                white-space: nowrap;
+                margin: 0;
+            }
+
+            .cart-header-stats {
+                font-size: 0.9rem;
+                color: rgba(255,255,255,0.9);
+                font-weight: 500;
+                white-space: nowrap;
+                margin: 0;
+                text-align: right;
+            }
+
+            .cart-header-stats.empty {
+                color: rgba(255,255,255,0.7);
+                font-style: normal;
+                font-size: 0.9rem;
+            }
+
+            .cart-header-stats.empty {
+                color: rgba(255,255,255,0.7);
+                font-style: normal;
+                font-size: 0.9rem;
+            }
+
+            .cart-close-btn {
+                background: rgba(255,255,255,0.2);
+                border: none;
+                font-size: 1.5rem;
+                cursor: pointer;
+                padding: 4px 12px;
+                border-radius: 8px;
+                color: white;
+                display: block;
+                transition: background 0.2s;
+            }
+
+            .cart-close-btn:active {
+                background: rgba(255,255,255,0.3);
+            }
+
+            .cart-header.expanded .cart-close-btn {
+                display: block;
+            }
+
+            .cart-backdrop {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.3);
+                z-index: 998;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.2s ease;
+            }
+
+            .cart-backdrop.active {
+                opacity: 1;
+                pointer-events: auto;
+            }
+
+            .cart-content {
+                flex: 1;
+                overflow-y: auto;
+                padding: 16px;
+                display: none;
+                max-height: calc(70vh - 140px);
+            }
+
+            .cart-expanded .cart-content {
+                display: block;
+            }
+
+            .cart-footer {
+                padding: 16px;
+                border-top: 1px solid var(--border-color);
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.2s ease;
+            }
+
+            .cart-expanded .cart-footer {
+                opacity: 1;
+                pointer-events: auto;
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: white;
+                border-radius: 0;
+                box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            }
+
+            .cart-total-row {
+                display: flex;
+                justify-content: space-between;
+                font-weight: 600;
+                font-size: 1.125rem;
+                margin-bottom: 8px;
+                color: var(--text-primary);
+            }
+
+            .cart-button-group {
+                display: flex;
+                gap: 8px;
+            }
+
+            .cart-button-group button {
+                flex: 1;
+                padding: 12px;
+                border: none;
+                border-radius: 8px;
+                font-size: 0.95rem;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+
+            /* Desktop view - keep traditional cart */
+            @media (min-width: 769px) {
+                .cart-bottom-sheet {
+                    position: static;
+                    display: block;
+                    background: var(--bg-secondary);
+                    border-radius: 8px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    max-height: none;
+                    height: auto;
+                    border: 1px solid var(--border-color);
+                }
+
+                .cart-collapsed {
+                    transform: none;
+                }
+
+                .cart-header {
+                    padding: 16px;
+                    border-bottom: 1px solid var(--border-color);
+                    cursor: auto;
+                    flex-direction: row;
+                    align-items: center;
+                    justify-content: space-between;
+                }
+
+                .cart-handle {
+                    display: none;
+                }
+
+                .cart-header-info {
+                    margin-top: 0;
+                    flex: 1;
+                }
+
+                .cart-header h2 {
+                    margin: 0;
+                    font-size: 1.125rem;
+                }
+
+                .cart-backdrop {
+                    display: none;
+                }
+
+                .cart-content {
+                    overflow: visible;
+                    padding: 16px;
+                }
+
+                .cart-footer {
+                    display: flex;
+                    padding: 16px;
+                    border-top: 1px solid var(--border-color);
+                    opacity: 1;
+                    pointer-events: auto;
+                }
+            }
+
+            .tabs {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                position: sticky;
+                top: 0;
+                z-index: 100;
+            }
+
+            .tab {
+                flex: 0 0 auto;
+                min-width: 100px;
+                font-size: 0.875rem;
+                padding: 0.875rem 0.75rem;
+                transition: color 0.3s, border-color 0.3s;
+            position: relative;
+        }
+
+        /* Cart badge on tab */
+        .cart-badge {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: #ff6b6b;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: bold;
+            opacity: 0;
+            transform: scale(0);
+            transition: all 0.2s ease;
+        }
+
+        .cart-badge.active {
+            opacity: 1;
+            transform: scale(1);
+                width: 45px;
+                height: 45px;
+                bottom: 15px;
+                right: 15px;
+                font-size: 1.25rem;
+            }
+
+            .dashboard-stats {
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                gap: 0.75rem;
+            }
+
+            .stat-card {
+                padding: 0.875rem;
+            }
+
+            .stat-value {
+                font-size: 1.5rem;
+            }
+
+            .stat-label {
+                font-size: 0.75rem;
+            }
+        }
+
+        .toast {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: white;
+            color: #333;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            z-index: 10001;
+            animation: slideIn 0.3s ease-out;
+            min-width: 250px;
+        }
+
+        .toast.success {
+            border-left: 4px solid #48bb78;
+        }
+
+        .toast.error {
+            border-left: 4px solid #f56565;
+        }
+
+        .toast.info {
+            border-left: 4px solid #4299e1;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .sale-item {
+            padding: 1rem;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .sale-item:hover {
+            background: var(--bg-primary);
+        }
+
+        .sale-item.expanded {
+            background: var(--bg-primary);
+        }
+
+        .sale-expanded-details {
+            display: none;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .sale-item.expanded .sale-expanded-details {
+            display: block;
+        }
+
+        .status.online {
+            color: #4CAF50;
+        }
+
+        .status.offline {
+            color: #ff9800;
+        }
+
+        .tabs {
+            display: flex;
+            background: var(--bg-secondary);
+            box-shadow: 0 2px 5px var(--card-shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 1rem;
+            text-align: center;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .tab:hover {
+            background: #f5f5f5;
+        }
+
+        .tab.active {
+            border-bottom-color: #667eea;
+            color: #667eea;
+        }
+
+        .content {
+            display: none;
+            padding: 1rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .content.active {
+            display: block;
+        }
+
+        /* Mobile swipeable content */
+        @media (max-width: 768px) {
+            .content-wrapper {
+                display: flex;
+                overflow-x: auto;
+                overflow-y: hidden;
+                scroll-snap-type: x mandatory;
+                -webkit-overflow-scrolling: touch;
+                scroll-behavior: smooth;
+                height: calc(100vh - 120px);
+            }
+
+            .content-wrapper::-webkit-scrollbar {
+                display: none;
+            }
+
+            .content {
+                display: block;
+                min-width: 100%;
+                scroll-snap-align: start;
+                overflow-y: auto;
+                padding: 0.5rem 0.5rem 90px 0.5rem;
+                padding-bottom: max(90px, calc(90px + env(safe-area-inset-bottom)));
+            }
+
+            .content.active {
+                display: block;
+            }
+        }
+
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 2rem;
+        }
+
+        .menu-item {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 14px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s, background 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            border: 1px solid var(--border-color);
+            min-height: 110px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 8px;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            position: relative;
+        }
+
+        .menu-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .menu-item:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .menu-item .name {
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            line-height: 1.2;
+            color: var(--text-primary);
+        }
+
+        .menu-item .price {
+            color: #667eea;
+            font-weight: 800;
+            font-size: 1.05rem;
+            letter-spacing: 0.3px;
+        }
+
+        .menu-item .category {
+            font-size: 0.75rem;
+            color: #999;
+            margin-top: 0.25rem;
+        }
+
+        .cart {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            box-shadow: 0 2px 10px var(--card-shadow);
+        }
+
+        .cart h2 {
+            margin-bottom: 1rem;
+            color: #667eea;
+        }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .cart-item:last-child {
+            border-bottom: none;
+        }
+
+        .cart-item-name {
+            flex: 1;
+            font-weight: 500;
+        }
+
+        .cart-item-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .cart-item button {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 4px;
+            background: #667eea;
+            color: white;
+            cursor: pointer;
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .cart-item button:hover {
+            background: #5568d3;
+        }
+
+        .cart-item-quantity {
+            min-width: 30px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .cart-total {
+            display: flex;
+            justify-content: space-between;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin: 1rem 0;
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .cart-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        button {
+            padding: 1rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #da190b;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .stat-card .label {
+            color: #999;
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .sales-list {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .sale-item {
+            padding: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .sale-item:last-child {
+            border-bottom: none;
+        }
+
+        .sale-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .sale-id {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .sale-total {
+            font-weight: 700;
+            color: #4CAF50;
+        }
+
+        .sale-details {
+            font-size: 0.875rem;
+            color: #666;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal.active {
+            display: flex;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Vendor Login Modal Specific Styles */
+        #vendorLoginModal {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        #vendorLoginModal .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 32px;
+            max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.4s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .vendor-modal-header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .vendor-modal-emoji {
+            font-size: 48px;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .vendor-modal-title {
+            font-size: 24px;
+            color: #2d3748;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .vendor-modal-subtitle {
+            font-size: 14px;
+            color: #718096;
+            line-height: 1.5;
+        }
+
+        .vendor-cards-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .vendor-card {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: white;
+            outline: none;
+            position: relative;
+        }
+
+        .vendor-card:hover {
+            border-color: #667eea;
+            background: #f7fafc;
+            transform: translateX(4px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+        }
+
+        .vendor-card:hover .vendor-card-arrow {
+            color: #667eea;
+            transform: translateX(4px);
+        }
+
+        .vendor-card:focus {
+            border-color: #667eea;
+            outline: 2px solid #667eea;
+            outline-offset: 2px;
+        }
+
+        .vendor-card:active {
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            transform: translateX(2px) scale(0.98);
+        }
+
+        .vendor-card-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 700;
+            color: white;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .vendor-card-info {
+            flex: 1;
+        }
+
+        .vendor-card-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 2px;
+        }
+
+        .vendor-card-till {
+            font-size: 13px;
+            color: #718096;
+        }
+
+        .vendor-card-arrow {
+            font-size: 20px;
+            color: #cbd5e0;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 480px) {
+            #vendorLoginModal .modal-content {
+                padding: 20px;
+                max-width: 90%;
+                margin: 0 16px;
+            }
+
+            .vendor-modal-header {
+                margin-bottom: 20px;
+            }
+
+            .vendor-modal-emoji {
+                font-size: 40px;
+            }
+
+            .vendor-modal-title {
+                font-size: 20px;
+            }
+
+            .vendor-modal-subtitle {
+                font-size: 13px;
+            }
+
+            .vendor-card {
+                padding: 12px;
+            }
+
+            .vendor-card:hover {
+                transform: none; /* Remove slide effect on mobile for better touch */
+            }
+
+            .vendor-card-avatar {
+                width: 42px;
+                height: 42px;
+                font-size: 18px;
+            }
+
+            .vendor-card-name {
+                font-size: 15px;
+            }
+
+            .vendor-card-till {
+                font-size: 12px;
+            }
+
+            /* Additional mobile optimizations */
+            .header h1 {
+                font-size: 1.125rem;
+            }
+
+            .menu-grid {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+                gap: 0.75rem;
+                padding: 0.75rem;
+            }
+
+            .menu-item {
+                padding: 1rem 0.75rem;
+                min-height: 110px;
+            }
+
+            .menu-item .name {
+                font-size: 0.8125rem;
+            }
+
+            .menu-item .price {
+                font-size: 0.9375rem;
+            }
+
+            .category-section h3 {
+                font-size: 0.9375rem;
+                margin-bottom: 0.5rem;
+                padding: 0.5rem 0;
+            }
+
+            .vendor-badge {
+                padding: 6px 10px;
+                gap: 8px;
+            }
+            
+            .vendor-avatar {
+                width: 32px;
+                height: 32px;
+                font-size: 0.875rem;
+                border-radius: 8px;
+            }
+            
+            .vendor-name {
+                font-size: 0.8125rem;
+            }
+            
+            .vendor-till {
+                font-size: 0.6875rem;
+            }
+
+            .vendor-switch-btn {
+                width: 28px;
+                height: 28px;
+                font-size: 0.875rem;
+            }
+
+            .cart-total {
+                font-size: 1.125rem;
+            }
+
+            .tab {
+                font-size: 0.8125rem;
+                padding: 0.75rem 0.5rem;
+            }
+        }
+
+        /* Empty state styling */
+        .vendor-loading {
+            text-align: center;
+            padding: 32px;
+            color: #718096;
+        }
+
+        .vendor-loading-spinner {
+            width: 40px;
+            height: 40px;
+            margin: 0 auto 16px;
+            border: 4px solid #e2e8f0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .vendor-error {
+            text-align: center;
+            padding: 24px;
+            color: #e53e3e;
+            background: #fff5f5;
+            border-radius: 12px;
+            border: 1px solid #feb2b2;
+        }
+
+        /* Screen reader only text */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+
+        /* Generic modal styles */
+        .modal-content {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal h2 {
+            margin-bottom: 1rem;
+            color: #667eea;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #999;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 1rem;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes toastSlideIn {
+            from {
+                transform: translateX(-50%) translateY(-100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes toastSlideOut {
+            from {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(-50%) translateY(-100px);
+                opacity: 0;
+            }
+        }
+
+        .filters {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .filters input {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 0.5rem;
+        }
+
+        .category-section {
+            margin-bottom: 2.5rem;
+        }
+
+        .category-section.popular-section {
+            margin-bottom: 3rem;
+            background: linear-gradient(135deg, #f7fafc 0%, #f0f4ff 100%);
+            padding: 1.25rem;
+            border-radius: 12px;
+            border: 2px solid #e6e8ff;
+            margin-top: 1rem;
+        }
+
+        .category-section h3 {
+            color: #2d3748;
+            margin-bottom: 1.25rem;
+            font-size: 1.1rem;
+            font-weight: 700;
+            position: sticky;
+            top: 108px;
+            background: var(--bg-primary);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+        }
+
+        .category-section.popular-section h3 {
+            top: 108px;
+            color: #667eea;
+            background: linear-gradient(135deg, #f7fafc 0%, #f0f4ff 100%);
+        }
+
+        /* Mobile touch optimizations */
+        @media (max-width: 768px) {
+            * {
+                -webkit-tap-highlight-color: transparent;
+                touch-action: manipulation;
+            }
+
+            html {
+                scroll-behavior: smooth;
+            }
+
+            /* Safe area for notched devices */
+            body {
+                padding-top: env(safe-area-inset-top);
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+
+            /* Prevent zoom on input focus */
+            input, select, textarea {
+                font-size: 16px !important;
+            }
+
+            .category-section h3 {
+                font-size: 1rem;
+                padding: 8px 0;
+                margin-bottom: 0.75rem;
+            }
+
+            /* Horizontal scrollable category headers (if you add tabs) */
+            .category-tabs-container {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                padding: 10px 12px;
+                background: white;
+                position: sticky;
+                top: 108px;
+                z-index: 99;
+                border-bottom: 1px solid #e2e8f0;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                justify-content: flex-start;
+                align-items: center;
+            }
+
+            .category-pill {
+                display: inline-block;
+                padding: 7px 18px;
+                background: #f7fafc;
+                border: 2px solid #e2e8f0;
+                border-radius: 24px;
+                font-size: 13px;
+                font-weight: 700;
+                color: #4a5568;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s ease;
+                user-select: none;
+                -webkit-tap-highlight-color: transparent;
+                flex-shrink: 0;
+                text-decoration: none;
+                letter-spacing: 0.2px;
+            }
+
+            .category-pill:hover {
+                background: #edf2f7;
+                border-color: #cbd5e0;
+                transform: translateY(-1px);
+            }
+
+            .category-pill:active {
+                transform: scale(0.97);
+            }
+
+            .category-pill.active {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                border-color: #667eea;
+                color: white;
+                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+                transform: translateY(-2px);
+            }
+
+            .category-pill.active:hover {
+                background: linear-gradient(135deg, #5568d3 0%, #6b4292 100%);
+                box-shadow: 0 5px 14px rgba(102, 126, 234, 0.4);
+            }
+
+            .category-pill:focus-visible {
+                outline: 3px solid #667eea;
+                outline-offset: 2px;
+            }
+
+        .payment-card.selected {
+            border-color: #48bb78 !important;
+            background: #c6f6d5 !important;
+        }
+
+        /* Back to Top Button */
+        .back-to-top-btn {
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            z-index: 997;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .back-to-top-btn.visible {
+            display: flex;
+        }
+
+        .back-to-top-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+        }
+
+        .back-to-top-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Menu item quantity badge */
+        .menu-item-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #48bb78;
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+
+        /* Desktop category tabs styling */
+        @media (min-width: 769px) {
+            .category-tabs-container {
+                flex-wrap: wrap;
+                justify-content: flex-start;
+                padding: 14px 18px;
+                gap: 10px;
+                position: sticky;
+                top: 90px;
+            }
+
+            .category-pill {
+                padding: 8px 20px;
+                font-size: 14px;
+            }
+
+            .menu-grid {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 14px;
+            }
+
+            .menu-item {
+                min-height: 120px;
+                padding: 16px;
+                border-radius: 14px;
+            }
+
+            .menu-item .price {
+                font-size: 1.05rem;
+            }
+        }
+
+        @media (max-width: 374px) {
+            .menu-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+
+            .menu-item {
+                min-height: 100px;
+                padding: 12px;
+            }
+        }
+
+        @media (min-width: 375px) and (max-width: 768px) {
+            .menu-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+            }
+
+            .back-to-top-btn {
+                bottom: 100px;
+                right: 12px;
+            }
+
+            .cart-actions {
+                grid-template-columns: 1fr;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- PIN Login Screen (shown before app) -->
+    <div id="loginScreen" class="login-screen">
+        <div class="login-container">
+            <div class="login-header">
+                <div class="login-logo">🍽️</div>
+                <h1>Chafua POS</h1>
+                <p>Secure Login</p>
+            </div>
+            <form onsubmit="handlePinLogin(event)" class="login-form">
+                <div class="pin-input-group">
+                    <label>Enter PIN:</label>
+                    <input 
+                        type="password" 
+                        id="pinInput" 
+                        placeholder="••••" 
+                        maxlength="6"
+                        pattern="[0-9]{4,6}"
+                        required
+                        autofocus
+                    >
+                </div>
+                <button type="submit" class="login-btn">🔓 Login</button>
+                <div id="loginError" class="login-error" style="display: none;"></div>
+                <p class="login-hint">Default PIN: 0000 (change after first login)</p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Business Name Setup Screen (shown after PIN login on first time) -->
+    <div id="businessNameScreen" class="login-screen" style="display: none;">
+        <div class="login-container">
+            <div class="login-header">
+                <div class="login-logo">📝</div>
+                <h1>Name Your Business</h1>
+                <p>Let's personalize your account</p>
+            </div>
+            <form onsubmit="handleBusinessNameSubmit(event)" class="login-form">
+                <div class="pin-input-group">
+                    <label>Business Name:</label>
+                    <input 
+                        type="text" 
+                        id="businessNameInput" 
+                        placeholder="e.g., Main Cafeteria, Canteen A" 
+                        maxlength="50"
+                        required
+                        autofocus
+                    >
+                    <small style="color: #999; margin-top: 0.5rem; display: block;">You can change this later in Settings</small>
+                </div>
+                <button type="submit" class="login-btn">✅ Continue</button>
+                <div id="businessNameError" class="login-error" style="display: none;"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main App (hidden until login) -->
+    <div id="mainApp" style="display: none;">
+    <div class="header">
+        <div class="header-left">
+            <h1>🍽️ Chafua</h1>
+            <div class="status" id="connectionStatus">Connecting...</div>
+        </div>
+        <!-- User Profile Icon (Top Right) -->
+        <button class="user-profile-btn" onclick="showUserMenu()" title="User Menu" aria-label="User Profile Menu">
+            👤
+        </button>
+        <div class="user-menu" id="userMenu">
+            <div class="user-menu-item">
+                <span class="user-menu-label">Business:</span>
+                <span class="user-menu-value" id="userMenuBusiness">Your Business</span>
+            </div>
+            <hr style="margin: 8px 0; border: none; border-top: 1px solid var(--border-color);">
+            <button class="user-menu-logout" onclick="logout()">🚪 Logout</button>
+        </div>
+    </div>
+
+    <!-- Theme Toggle -->
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Dark Mode">🌙</button>
+
+    <!-- Vendor Login Modal -->
+    <div class="modal" id="vendorLoginModal" role="dialog" aria-labelledby="vendor-modal-title" aria-modal="true" style="display: none !important;">
+        <div class="modal-content">
+            <div class="vendor-modal-header">
+                <span class="vendor-modal-emoji" aria-hidden="true">👋</span>
+                <h2 id="vendor-modal-title" class="vendor-modal-title">Welcome to Chafua POS</h2>
+                <p class="vendor-modal-subtitle">Select your vendor account to continue</p>
+            </div>
+            <div class="vendor-cards-container" role="list">
+                <div class="vendor-card" 
+                     role="button" 
+                     tabindex="0" 
+                     aria-label="Select Vendor 1 with till number 123456"
+                     onclick="selectVendorCard('Vendor1')"
+                     onkeydown="handleVendorCardKeydown(event, 'Vendor1')">
+                    <div class="vendor-card-avatar" aria-hidden="true">V1</div>
+                    <div class="vendor-card-info">
+                        <div class="vendor-card-name">Vendor 1</div>
+                        <div class="vendor-card-till">Till 123456</div>
+                    </div>
+                    <div class="vendor-card-arrow" aria-hidden="true">→</div>
+                    <span class="sr-only">Press Enter or Space to select Vendor 1</span>
+                </div>
+                <div class="vendor-card" 
+                     role="button" 
+                     tabindex="0" 
+                     aria-label="Select Vendor 2 with till number 789012"
+                     onclick="selectVendorCard('Vendor2')"
+                     onkeydown="handleVendorCardKeydown(event, 'Vendor2')">
+                    <div class="vendor-card-avatar" aria-hidden="true">V2</div>
+                    <div class="vendor-card-info">
+                        <div class="vendor-card-name">Vendor 2</div>
+                        <div class="vendor-card-till">Till 789012</div>
+                    </div>
+                    <div class="vendor-card-arrow" aria-hidden="true">→</div>
+                    <span class="sr-only">Press Enter or Space to select Vendor 2</span>
+                </div>
+                <div class="vendor-card" 
+                     role="button" 
+                     tabindex="0" 
+                     aria-label="Select Vendor 3 with till number 345678"
+                     onclick="selectVendorCard('Vendor3')"
+                     onkeydown="handleVendorCardKeydown(event, 'Vendor3')">
+                    <div class="vendor-card-avatar" aria-hidden="true">V3</div>
+                    <div class="vendor-card-info">
+                        <div class="vendor-card-name">Vendor 3</div>
+                        <div class="vendor-card-till">Till 345678</div>
+                    </div>
+                    <div class="vendor-card-arrow" aria-hidden="true">→</div>
+                    <span class="sr-only">Press Enter or Space to select Vendor 3</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div class="modal" id="exportModal" role="dialog" aria-labelledby="export-modal-title" aria-modal="true">
+        <div class="modal-content" style="max-width: 500px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 id="export-modal-title" style="margin: 0;">📥 Export Sales</h2>
+                <button onclick="closeExportModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #666;">✕</button>
+            </div>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Start Date:</label>
+                <input type="date" id="exportStartDate" style="width: 100%; padding: 0.75rem; border: 2px solid #ddd; border-radius: 8px;">
+            </div>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">End Date:</label>
+                <input type="date" id="exportEndDate" style="width: 100%; padding: 0.75rem; border: 2px solid #ddd; border-radius: 8px;">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                <div style="padding: 1rem; background: #f5f5f5; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 0.9rem; color: #666;">Records Found</div>
+                    <div style="font-size: 1.5rem; font-weight: 700; color: #333;" id="exportPreviewCount">0</div>
+                </div>
+                <div style="padding: 1rem; background: #f5f5f5; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 0.9rem; color: #666;">Total Amount</div>
+                    <div style="font-size: 1.5rem; font-weight: 700; color: #333;" id="exportPreviewTotal">KES 0</div>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <button class="btn-secondary" onclick="closeExportModal()">Cancel</button>
+                <button class="btn-primary" onclick="confirmExport()">Export Now</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export History Modal -->
+    <div class="modal" id="exportHistoryModal" role="dialog" aria-labelledby="history-modal-title" aria-modal="true">
+        <div class="modal-content" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 id="history-modal-title" style="margin: 0;">📋 Export History</h2>
+                <button onclick="closeExportHistoryModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #666;">✕</button>
+            </div>
+            
+            <div id="exportHistoryList" style="display: flex; flex-direction: column; gap: 1rem;">
+                <div style="text-align: center; color: #999;">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" data-tab="sell">💳 Sell<span class="cart-badge" id="cartBadge"></span></div>
+        <div class="tab" data-tab="dashboard">📊 Dashboard</div>
+        <div class="tab" data-tab="sales">📝 Sales</div>
+        <div class="tab" data-tab="test">🧪 Test M-Pesa</div>
+        <div class="tab" data-tab="settings">⚙️ Settings</div>
+    </div>
+
+    <div class="content-wrapper" id="contentWrapper">
+        <!-- Sell Tab -->
+        <div class="content active" id="sell" data-index="0">
+        <h2 style="margin-bottom: 1rem;">Menu</h2>
+        
+        <!-- Search Bar -->
+        <div style="margin-bottom: 1rem;">
+            <input type="text" id="menuSearch" placeholder="🔍 Search menu..." 
+                   style="width: 100%; padding: 0.75rem; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem;"
+                   oninput="debounceFilterMenu()">
+        </div>
+        
+        <!-- Category Tabs -->
+        <div class="category-tabs-container" id="categoryTabs" role="tablist"></div>
+        
+        <div class="menu-grid" id="menuGrid"></div>
+        
+        <!-- Back to Top Button -->
+        <button id="backToTopBtn" class="back-to-top-btn" onclick="scrollToTop()" title="Back to Top">⬆️</button>
+
+        <!-- BOTTOM SHEET CART (MOBILE) & DESKTOP CART -->
+        <div class="cart-backdrop" id="cartBackdrop" onclick="toggleCart()"></div>
+        
+        <div class="cart cart-bottom-sheet cart-collapsed" id="cartSheet">
+            <!-- Cart Header (Handle + Summary) -->
+            <div class="cart-header" id="cartHeader" onclick="toggleCart()">
+                <div class="cart-handle"></div>
+                <div class="cart-header-info">
+                    <span class="cart-header-title">Current Order</span>
+                    <span class="cart-header-stats" id="cartStats">0 items • KES 0</span>
+                </div>
+                <button class="cart-close-btn" onclick="collapseCart()">&times;</button>
+            </div>
+
+            <!-- Cart Items -->
+            <div class="cart-content" id="cartItems"></div>
+
+            <!-- Cart Footer (Total + Buttons) -->
+            <div class="cart-footer" id="cartFooter">
+                <div class="cart-total-row">
+                    <span>Total:</span>
+                    <span id="cartTotal">KES 0</span>
+                </div>
+                <div class="cart-button-group">
+                    <button class="btn-secondary" onclick="clearCart()">Clear</button>
+                    <button class="btn-primary" onclick="showPaymentModal()">Complete Sale</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Tab -->
+    <div class="content" id="dashboard" data-index="1">
+        <h2 style="margin-bottom: 1rem;">Sales Overview</h2>
+        <div class="stats">
+            <div class="stat-card">
+                <div class="label">Total Sales</div>
+                <div class="value" id="totalSales">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Total Revenue</div>
+                <div class="value" id="totalRevenue">KES 0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Average Order</div>
+                <div class="value" id="avgOrder">KES 0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Top Item Today</div>
+                <div class="value" id="topItem" style="font-size: 1.25rem;">-</div>
+            </div>
+        </div>
+
+        <div style="background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h3 style="margin-bottom: 1rem;">Quick Actions</h3>
+            <div style="display: grid; gap: 1rem;">
+                <button class="btn-primary" onclick="openExportModal()">📥 Export to Excel</button>
+                <button class="btn-secondary" onclick="showExportHistory()">📋 View Export History</button>
+                <button class="btn-secondary" onclick="loadDashboard()">🔄 Refresh</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sales Tab -->
+    <div class="content" id="sales" data-index="2">
+        <h2 style="margin-bottom: 1rem;">Sales History</h2>
+        <div class="filters">
+            <input type="date" id="filterStartDate">
+            <input type="date" id="filterEndDate">
+            <button class="btn-primary" onclick="filterSales()">Filter</button>
+            <button class="btn-secondary" onclick="loadSales()">Show All</button>
+        </div>
+        <div class="sales-list" id="salesList"></div>
+    </div>
+
+    <!-- Test M-Pesa Tab -->
+    <div class="content" id="test" data-index="3">
+        <h2 style="margin-bottom: 1rem;">🧪 Test M-Pesa Payments</h2>
+        <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px;">
+            <strong>⚠️ Development Only:</strong> Use this to simulate M-Pesa payments without connecting to Safaricom Daraja. Once you have credentials, payments will come automatically from the M-Pesa API.
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
+            <!-- Quick Test Buttons -->
+            <div>
+                <h3 style="margin-bottom: 1rem;">Quick Test Payments</h3>
+                <div id="testSuggestions" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
+            </div>
+            
+            <!-- Manual Input -->
+            <div>
+                <h3 style="margin-bottom: 1rem;">Create Custom Payment</h3>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    <input type="text" id="testPayerName" placeholder="Payer Name (e.g., John Kamau)" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                    <input type="number" id="testAmount" placeholder="Amount (KES)" value="100" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                    <input type="text" id="testPhone" placeholder="Phone (254712345678)" value="254712345678" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                    <button class="btn-primary" onclick="createTestPayment()">Create Payment</button>
+                </div>
+            </div>
+        </div>
+        
+        <div style="background: #f8f9fa; padding: 1rem; border-radius: 4px;">
+            <h3 style="margin-bottom: 1rem;">How to Use:</h3>
+            <ol style="margin-left: 1.5rem;">
+                <li>Click a "Quick Test" button or enter details and click "Create Payment"</li>
+                <li>Go to the Sell tab and enter the same name (e.g., "John Kamau")</li>
+                <li>The payment will appear and auto-select</li>
+                <li>Tap to confirm and complete the sale</li>
+                <li>The payment will be marked as used and removed</li>
+            </ol>
+        </div>
+        
+        <div id="testStatus" style="margin-top: 1rem; padding: 1rem; border-radius: 4px; display: none;"></div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div class="content" id="settings" data-index="4">
+        <h2 style="margin-bottom: 1.5rem;">⚙️ Settings</h2>
+        
+        <div style="max-width: 500px; margin: 0 auto;">
+            <!-- Change PIN Card -->
+            <div style="background: white; border: 1px solid #ddd; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
+                <h3 style="margin-bottom: 1rem; color: #333;">🔐 Change PIN</h3>
+                <p style="color: #666; font-size: 0.9rem; margin-bottom: 1rem;">Update your security PIN. Keep it secret and don't share with anyone.</p>
+                
+                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                    <!-- Current PIN -->
+                    <div>
+                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #333;">Current PIN:</label>
+                        <input type="password" id="currentPin" placeholder="Enter current PIN" maxlength="6" pattern="[0-9]{4,6}"
+                               style="width: 100%; padding: 0.75rem; border: 2px solid #ddd; border-radius: 6px; font-size: 1rem; letter-spacing: 2px;">
+                    </div>
+                    
+                    <!-- New PIN -->
+                    <div>
+                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #333;">New PIN:</label>
+                        <input type="password" id="newPin" placeholder="Enter new PIN (4-6 digits)" maxlength="6" pattern="[0-9]{4,6}"
+                               style="width: 100%; padding: 0.75rem; border: 2px solid #ddd; border-radius: 6px; font-size: 1rem; letter-spacing: 2px;">
+                        <small style="color: #999; display: block; margin-top: 0.25rem;">Use 4-6 digits for security</small>
+                    </div>
+                    
+                    <!-- Confirm New PIN -->
+                    <div>
+                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #333;">Confirm New PIN:</label>
+                        <input type="password" id="confirmPin" placeholder="Confirm new PIN" maxlength="6" pattern="[0-9]{4,6}"
+                               style="width: 100%; padding: 0.75rem; border: 2px solid #ddd; border-radius: 6px; font-size: 1rem; letter-spacing: 2px;">
+                    </div>
+                    
+                    <!-- Change Button -->
+                    <button class="btn-primary" onclick="changePinHandler()" style="padding: 0.75rem; font-size: 1rem; font-weight: 600;">
+                        🔓 Update PIN
+                    </button>
+                    
+                    <!-- Status Message -->
+                    <div id="pinChangeStatus" style="padding: 1rem; border-radius: 6px; display: none; text-align: center; font-weight: 600;"></div>
+                </div>
+            </div>
+            
+            <!-- Account Info -->
+            <div style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 1.5rem;">
+                <h3 style="margin-bottom: 1rem; color: #333;">📊 Account Info</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <label style="color: #666; font-size: 0.9rem; display: block;">Business Name:</label>
+                        <p style="font-weight: 600; margin: 0.5rem 0 0 0;" id="businessNameDisplay">Loading...</p>
+                    </div>
+                    <div>
+                        <label style="color: #666; font-size: 0.9rem; display: block;">Account Created:</label>
+                        <p style="font-weight: 600; margin: 0.5rem 0 0 0;" id="accountCreatedDisplay">-</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Menu Management Card -->
+            <div style="background: white; border: 1px solid #ddd; border-left: 4px solid #FF9800; border-radius: 8px; padding: 1.5rem; margin-top: 1.5rem; margin-bottom: 1.5rem;">
+                <h3 style="margin-bottom: 1rem; color: #333;">📋 Manage Menu</h3>
+                <p style="color: #666; font-size: 0.9rem; margin-bottom: 1rem;">Add, edit, or remove items from your menu.</p>
+                
+                <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem;">
+                    <!-- Item Name -->
+                    <div>
+                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #333;">Item Name:</label>
+                        <input type="text" id="menuItemName" placeholder="e.g., Coffee" maxlength="50"
+                               style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem;">
+                    </div>
+                    
+                    <!-- Category -->
+                    <div>
+                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #333;">Category:</label>
+                        <select id="menuItemCategory" style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem;">
+                            <option value="" disabled selected>Select a category</option>
+                            <option value="Breakfast">🌅 Breakfast</option>
+                            <option value="Lunch">🍽️ Lunch</option>
+                            <option value="Dinner">🌙 Dinner</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Price -->
+                    <div>
+                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #333;">Price (KES):</label>
+                        <input type="number" id="menuItemPrice" placeholder="e.g., 150" min="1" step="10"
+                               style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem;">
+                    </div>
+                    
+                    <!-- Add Button -->
+                    <button class="btn-primary" onclick="addMenuItemHandler()" style="padding: 0.75rem; font-size: 1rem; font-weight: 600;">
+                        ➕ Add Item to Menu
+                    </button>
+                    
+                    
+                    <!-- Status Message -->
+                    <div id="menuStatus" style="padding: 1rem; border-radius: 6px; display: none; text-align: center; font-weight: 600;"></div>
+                </div>
+                
+                <!-- Current Menu Items -->
+                <div style="border-top: 1px solid #ddd; padding-top: 1rem;">
+                    <h4 style="margin-bottom: 1rem; color: #333;">Current Menu Items:</h4>
+                    <div id="menuList" style="max-height: 400px; overflow-y: auto;"></div>
+                </div>
+            </div>
+            
+            <!-- Logout Button -->
+            <button class="btn-secondary" onclick="logout()" style="width: 100%; margin-top: 1.5rem; padding: 0.75rem; font-size: 1rem;">
+                🚪 Logout
+            </button>
+        </div>
+    </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div class="modal" id="paymentModal">
+        <div class="modal-content">
+            <h2>Complete Payment</h2>
+            <div id="paymentAlert"></div>
+            <div class="cart-total" style="margin-bottom: 1rem;">
+                <span>Total:</span>
+                <span id="modalTotal">KES 0</span>
+            </div>
+            
+            <!-- Step 1: Student Name -->
+            <div class="form-group">
+                <label>Student Name</label>
+                <input type="text" id="studentName" placeholder="e.g., John Kamau" onchange="matchPaymentWithName()">
+                <small style="color: #666; font-size: 0.875rem;">Ask student their name first - we'll match with M-Pesa payments</small>
+            </div>
+            
+            <div class="form-group">
+                <label>Payment Method</label>
+                <select id="paymentMethod" onchange="updatePaymentFields()">
+                    <option value="mpesa">M-Pesa (Already Paid)</option>
+                    <option value="cash">Cash</option>
+                </select>
+            </div>
+            
+            <!-- Recent M-Pesa Payments (for matching) -->
+            <div id="recentPaymentsGroup">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Matching M-Pesa Payments (Shows payer name • Tap to confirm)</label>
+                <div id="recentPaymentsList" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 0.5rem;">
+                    <div style="text-align: center; color: #999; padding: 1rem;">Loading payments...</div>
+                </div>
+                
+                <!-- Payment Summary Section -->
+                <div id="paymentSummary" style="background: #f0f4ff; border: 2px solid #e6e8ff; border-radius: 8px; padding: 1rem; margin-top: 1rem; display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <div style="font-weight: 600; color: #2d3748;">Payment Summary</div>
+                        <div id="paymentStatus" style="background: #ffc107; color: #000; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">INCOMPLETE</div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Cart Total:</span>
+                        <span id="paymentSummaryTotal" style="font-weight: 600; color: #667eea;">KES 0</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Received:</span>
+                        <span id="paymentSummaryReceived" style="font-weight: 600; color: #48bb78;">KES 0</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding-top: 0.5rem; border-top: 1px solid #cbd5e0;">
+                        <span style="font-weight: 600;">Still Need:</span>
+                        <span id="paymentSummaryRemaining" style="font-weight: 700; color: #f56565; font-size: 1.1rem;">KES 0</span>
+                    </div>
+                    <div style="margin-top: 1rem; font-size: 0.9rem; color: #666;">
+                        <strong>Codes received:</strong> <span id="paymentCodesUsed" style="color: #2d3748; font-weight: 600;">None</span>
+                    </div>
+                    <button onclick="clearPaymentHistory()" style="width: 100%; margin-top: 1rem; padding: 0.5rem; background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 0.9rem;">
+                        🔄 Reset Payments
+                    </button>
+                </div>
+                
+                <input type="hidden" id="mpesaCode">
+                <input type="hidden" id="mpesaTransactionId">
+                <input type="hidden" id="mpesaAmount">
+                <input type="hidden" id="mpesaPaymentIds">
+                <input type="hidden" id="totalPaidAmount">
+            </div>
+            
+            <div class="form-group" id="phoneGroup" style="display: none;">
+                <label>Customer Phone Number</label>
+                <input type="tel" id="customerPhone" placeholder="254712345678">
+                <small style="color: #666; font-size: 0.875rem;">For sending payment request</small>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem;">
+                <button class="btn-secondary" onclick="closePaymentModal()">Cancel</button>
+                <button class="btn-primary" id="completeBtn" onclick="completeSale()" style="background: #999; color: white; cursor: not-allowed; opacity: 0.6;" disabled>
+                    <span id="completeBtnText">Complete (Add Payments)</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const CACHE_VERSION = 'v20260131-001'; // Force cache refresh
+        let menu = [];
+        let cart = [];
+        let sales = [];
+        let isOnline = false;
+        let authToken = localStorage.getItem('authToken') || null;
+
+        // ====== AUTHENTICATION FUNCTIONS ======
+        async function handlePinLogin(event) {
+            event.preventDefault();
+            const pin = document.getElementById('pinInput').value;
+            const errorDiv = document.getElementById('loginError');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pin })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    showToast('❌ Invalid PIN', 'error');
+                    errorDiv.textContent = data.error || 'Invalid PIN';
+                    errorDiv.style.display = 'block';
+                    document.getElementById('pinInput').value = '';
+                    return;
+                }
+                
+                // Store token
+                authToken = data.token;
+                localStorage.setItem('authToken', authToken);
+                localStorage.setItem('loginTime', new Date().toLocaleDateString());
+                showToast('✅ Login successful!', 'success');
+                
+                // Check if business name exists
+                const existingBusinessName = localStorage.getItem('businessName');
+                
+                if (existingBusinessName) {
+                    // User has set business name before, go straight to app
+                    document.getElementById('loginScreen').classList.add('hidden');
+                    document.getElementById('mainApp').style.display = 'block';
+                    init();
+                } else {
+                    // First time login, show business name setup
+                    document.getElementById('loginScreen').classList.add('hidden');
+                    document.getElementById('businessNameScreen').style.display = 'flex';
+                    document.getElementById('businessNameInput').focus();
+                }
+            } catch (error) {
+                showToast(`❌ Error: ${error.message}`, 'error');
+                errorDiv.textContent = 'Error: ' + error.message;
+                errorDiv.style.display = 'block';
+            }
+        }
+
+        function handleBusinessNameSubmit(event) {
+            event.preventDefault();
+            const businessName = document.getElementById('businessNameInput').value.trim();
+            const errorDiv = document.getElementById('businessNameError');
+            
+            if (!businessName) {
+                errorDiv.textContent = 'Please enter a business name';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            if (businessName.length < 2) {
+                errorDiv.textContent = 'Business name must be at least 2 characters';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            // Save business name
+            localStorage.setItem('businessName', businessName);
+            
+            // Show main app
+            document.getElementById('businessNameScreen').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+            
+            // Start the app
+            init();
+        }
+
+        function checkLogin() {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                // Show login screen
+                document.getElementById('loginScreen').classList.remove('hidden');
+                document.getElementById('mainApp').style.display = 'none';
+                document.getElementById('pinInput').focus();
+            } else {
+                // Already logged in, show app
+                authToken = token;
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('mainApp').style.display = 'block';
+                init();
+            }
+        }
+
+        // User menu functions
+        function showUserMenu() {
+            const menu = document.getElementById('userMenu');
+            menu.classList.toggle('active');
+            
+            // Close menu when clicking outside
+            if (menu.classList.contains('active')) {
+                setTimeout(() => {
+                    document.addEventListener('click', closeUserMenuOnClickOutside);
+                }, 10);
+            }
+        }
+
+        function closeUserMenuOnClickOutside(e) {
+            const menu = document.getElementById('userMenu');
+            const btn = document.querySelector('.user-profile-btn');
+            
+            if (!menu.contains(e.target) && !btn.contains(e.target)) {
+                menu.classList.remove('active');
+                document.removeEventListener('click', closeUserMenuOnClickOutside);
+            }
+        }
+
+        function closeUserMenu() {
+            const menu = document.getElementById('userMenu');
+            menu.classList.remove('active');
+            document.removeEventListener('click', closeUserMenuOnClickOutside);
+        }
+
+        function logout() {
+            closeUserMenu();
+            showToast('👋 Logged out successfully', 'info');
+            
+            // Clear auth token only (keep business name so user doesn't have to set it again)
+            localStorage.removeItem('authToken');
+            authToken = null;
+            
+            // Show login screen
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('businessNameScreen').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'none';
+            document.getElementById('pinInput').value = '';
+            document.getElementById('pinInput').focus();
+        }
+
+        // Handle PIN change
+        async function changePinHandler() {
+            const currentPin = document.getElementById('currentPin').value;
+            const newPin = document.getElementById('newPin').value;
+            const confirmPin = document.getElementById('confirmPin').value;
+            const statusDiv = document.getElementById('pinChangeStatus');
+            
+            // Validation
+            if (!currentPin || !newPin || !confirmPin) {
+                showToast('⚠️ Please fill in all fields', 'warning');
+                showPinStatus('Please fill in all fields', 'error');
+                return;
+            }
+            
+            if (newPin.length < 4 || newPin.length > 6) {
+                showToast('⚠️ PIN must be 4-6 digits', 'warning');
+                showPinStatus('New PIN must be 4-6 digits', 'error');
+                return;
+            }
+            
+            if (newPin !== confirmPin) {
+                showToast('⚠️ PINs do not match', 'warning');
+                showPinStatus('New PIN and confirmation do not match', 'error');
+                return;
+            }
+            
+            if (currentPin === newPin) {
+                showToast('⚠️ New PIN must be different', 'warning');
+                showPinStatus('New PIN must be different from current PIN', 'error');
+                return;
+            }
+            
+            if (!/^\d{4,6}$/.test(newPin)) {
+                showToast('⚠️ PIN must contain only digits', 'warning');
+                showPinStatus('PIN must contain only digits', 'error');
+                return;
+            }
+            
+            try {
+                const response = await apiCall('/api/auth/change-pin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ oldPin: currentPin, newPin: newPin })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    showToast(`❌ ${data.error || 'Failed to change PIN'}`, 'error');
+                    showPinStatus(data.error || 'Failed to change PIN', 'error');
+                    return;
+                }
+                
+                showToast('✅ PIN changed successfully!', 'success');
+                showPinStatus('✅ PIN changed successfully! Please remember your new PIN.', 'success');
+                
+                // Clear fields
+                setTimeout(() => {
+                    document.getElementById('currentPin').value = '';
+                    document.getElementById('newPin').value = '';
+                    document.getElementById('confirmPin').value = '';
+                    statusDiv.style.display = 'none';
+                }, 3000);
+                
+            } catch (error) {
+                console.error('Error changing PIN:', error);
+                showToast(`❌ Error: ${error.message}`, 'error');
+                showPinStatus('Error: ' + error.message, 'error');
+            }
+        }
+
+        // Show PIN change status message
+        function showPinStatus(message, type) {
+            const statusDiv = document.getElementById('pinChangeStatus');
+            statusDiv.textContent = message;
+            statusDiv.style.background = type === 'success' ? '#d4edda' : '#f8d7da';
+            statusDiv.style.color = type === 'success' ? '#155724' : '#721c24';
+            statusDiv.style.border = type === 'success' ? '1px solid #c3e6cb' : '1px solid #f5c6cb';
+            statusDiv.style.display = 'block';
+            
+            if (type === 'error') {
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // ====== MENU MANAGEMENT FUNCTIONS ======
+        async function addMenuItemHandler() {
+            const name = document.getElementById('menuItemName').value.trim();
+            const category = document.getElementById('menuItemCategory').value.trim();
+            const price = parseFloat(document.getElementById('menuItemPrice').value);
+            const statusDiv = document.getElementById('menuStatus');
+            
+            // Validation
+            if (!name || !category || !price || price <= 0) {
+                showToast('⚠️ Fill all fields with valid values', 'warning');
+                return;
+            }
+            
+            try {
+                const response = await apiCall('/api/menu', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, category, price })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showToast(`✅ "${name}" added to menu!`, 'success');
+                    document.getElementById('menuItemName').value = '';
+                    document.getElementById('menuItemCategory').value = '';
+                    document.getElementById('menuItemPrice').value = '';
+                    
+                    // Reload menu
+                    await loadMenu();
+                    renderMenuList();
+                } else {
+                    showToast(`❌ ${data.error || 'Failed to add item'}`, 'error');
+                }
+            } catch (error) {
+                showToast(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        function renderMenuList() {
+            const container = document.getElementById('menuList');
+            
+            if (menu.length === 0) {
+                container.innerHTML = '<p style="color: #999; text-align: center; padding: 2rem 1rem;">No items yet. Add your first item above!</p>';
+                return;
+            }
+            
+            // Group by category
+            const categories = {};
+            menu.forEach(item => {
+                const cat = item.category || 'Other';
+                if (!categories[cat]) categories[cat] = [];
+                categories[cat].push(item);
+            });
+            
+            container.innerHTML = Object.entries(categories).map(([category, items]) => `
+                <div style="margin-bottom: 1.5rem;">
+                    <h5 style="color: #666; font-weight: 600; margin-bottom: 0.75rem; text-transform: uppercase; font-size: 0.85rem;">${category}</h5>
+                    ${items.map(item => `
+                        <div style="padding: 0.75rem; border: 1px solid #eee; border-radius: 6px; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; background: #fafafa;">
+                            <div>
+                                <strong style="display: block;">${item.name}</strong>
+                                <span style="color: #4CAF50; font-weight: 600; font-size: 0.95rem;">KES ${item.price}</span>
+                            </div>
+                            <button onclick="deleteMenuItemHandler(${item.id})" 
+                                    style="background: #F44336; color: white; border: none; padding: 0.5rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
+                                🗑️ Delete
+                            </button>
+                        </div>
+                    `).join('')}
+                </div>
+            `).join('');
+        }
+
+        async function deleteMenuItemHandler(itemId) {
+            if (!confirm('Delete this item from the menu?')) return;
+            
+            try {
+                const response = await apiCall(`/api/menu/${itemId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    showToast('🗑️ Item deleted from menu', 'success');
+                    await loadMenu();
+                    renderMenuList();
+                } else {
+                    showToast('❌ Failed to delete item', 'error');
+                }
+            } catch (error) {
+                showToast(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Wrapper for fetch to include auth token
+        async function apiCall(endpoint, options = {}) {
+            const headers = options.headers || {};
+            if (authToken) {
+                headers.Authorization = `Bearer ${authToken}`;
+            }
+            
+            const response = await fetch(`${API_BASE}${endpoint}`, {
+                ...options,
+                headers
+            });
+            
+            if (response.status === 401) {
+                logout(); // Redirect to login if unauthorized
+                throw new Error('Session expired');
+            }
+            
+            return response;
+        }
+
+        // Toast Notifications
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            const icon = type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ';
+            toast.innerHTML = `<span style="font-size: 1.25rem;">${icon}</span><span>${message}</span>`;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideIn 0.3s ease-out reverse';
+                setTimeout(() => document.body.removeChild(toast), 300);
+            }, 3000);
+        }
+
+        // Dark Mode
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            document.querySelector('.theme-toggle').textContent = newTheme === 'dark' ? '☀️' : '🌙';
+        }
+
+        // Load saved theme
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        
+
+
+        // Keyboard Shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Ctrl/Cmd + S = Complete Sale
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                if (cart.length > 0) {
+                    showPaymentModal();
+                }
+            }
+            
+            // Escape = Close modal / Clear search
+            if (e.key === 'Escape') {
+                const modal = document.querySelector('.modal.active');
+                if (modal) {
+                    closePaymentModal();
+                } else {
+                    const search = document.getElementById('menuSearch');
+                    if (search && search.value) {
+                        search.value = '';
+                        filterMenu();
+                    }
+                }
+            }
+            
+            // Ctrl/Cmd + K = Focus search
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                document.getElementById('menuSearch')?.focus();
+            }
+        });
+
+        // Check server connection
+        async function checkConnection() {
+            try {
+                console.log('Checking connection to:', `${API_BASE}/api/health`);
+                const response = await fetch(`${API_BASE}/api/health`);
+                console.log('Response status:', response.status);
+                const data = await response.json();
+                console.log('Health check data:', data);
+                isOnline = data.status === 'ok';
+                updateConnectionStatus();
+                return true;
+            } catch (error) {
+                console.error('Connection check failed:', error);
+                isOnline = false;
+                updateConnectionStatus();
+                return false;
+            }
+        }
+
+        function updateConnectionStatus() {
+            const status = document.getElementById('connectionStatus');
+            if (isOnline) {
+                status.textContent = '✓ Connected';
+                status.className = 'status online';
+            } else {
+                status.textContent = '📡 Working Offline - Data Saved Locally';
+                status.className = 'status offline';
+            }
+        }
+
+        // Load menu
+        async function loadMenu() {
+            try {
+                const response = await apiCall(`/api/menu?v=${CACHE_VERSION}`);
+                menu = await response.json();
+                renderCategoryTabs();
+                renderMenu();
+                setupBackToTopButton();
+            } catch (error) {
+                console.error('Error loading menu:', error);
+                showAlert('paymentAlert', 'Error loading menu. Check server connection.', 'error');
+            }
+        }
+
+        // Render category tabs
+        function renderCategoryTabs() {
+            const tabsContainer = document.getElementById('categoryTabs');
+            
+            // Get all unique categories
+            const categories = ['ALL'];
+            menu.forEach(item => {
+                const cat = item.category || 'Other';
+                if (!categories.includes(cat)) {
+                    categories.push(cat);
+                }
+            });
+            
+            // Define preferred order
+            const order = ['ALL', 'Breakfast', 'Dinner', 'Lunch', 'Snacks', 'Vegetables'];
+            const sortedCategories = order.filter(cat => categories.includes(cat));
+            // Add any remaining categories not in order
+            categories.forEach(cat => {
+                if (!sortedCategories.includes(cat)) {
+                    sortedCategories.push(cat);
+                }
+            });
+            
+            tabsContainer.innerHTML = sortedCategories.map((cat, idx) => `
+                <button 
+                    class="category-pill ${idx === 0 ? 'active' : ''}" 
+                    data-category="${cat.toLowerCase()}"
+                    role="tab"
+                    aria-selected="${idx === 0 ? 'true' : 'false'}"
+                    aria-controls="menu-${cat.toLowerCase()}"
+                    onclick="selectCategoryTab('${cat}')">
+                    ${cat}
+                </button>
+            `).join('');
+            
+            // Store current category
+            window.currentCategory = 'ALL';
+            
+            // Add click handlers for haptic feedback
+            document.querySelectorAll('.category-pill').forEach(pill => {
+                pill.addEventListener('click', function(e) {
+                    if (navigator.vibrate) {
+                        navigator.vibrate(10);
+                    }
+                });
+            });
+        }
+
+        // Select category tab
+        function selectCategoryTab(category) {
+            window.currentCategory = category;
+            
+            // Update active tab styling
+            document.querySelectorAll('.category-pill').forEach(tab => {
+                const isActive = tab.dataset.category === category.toLowerCase();
+                tab.classList.toggle('active', isActive);
+                tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            });
+            
+            // Re-render menu with filter
+            filterMenu();
+        }
+
+        // Track item popularity based on cart additions
+        window.itemPopularity = {};
+
+        function trackItemPopularity(itemId) {
+            window.itemPopularity[itemId] = (window.itemPopularity[itemId] || 0) + 1;
+        }
+
+        function renderMenu() {
+            const grid = document.getElementById('menuGrid');
+            if (menu.length === 0) {
+                grid.innerHTML = '<div class="empty-state">No menu items available</div>';
+                return;
+            }
+            
+            // Filter by current category
+            let itemsToShow = menu;
+            if (window.currentCategory && window.currentCategory !== 'ALL') {
+                itemsToShow = menu.filter(item => (item.category || 'Other') === window.currentCategory);
+            }
+            
+            // When showing ALL, add Popular section
+            if (!window.currentCategory || window.currentCategory === 'ALL') {
+                // Calculate popular items (most frequently ordered)
+                const popularItems = menu
+                    .map(item => ({
+                        ...item,
+                        popularity: window.itemPopularity[item.id] || 0
+                    }))
+                    .filter(item => item.popularity > 0)
+                    .sort((a, b) => b.popularity - a.popularity)
+                    .slice(0, 4);
+
+                // Build HTML with Popular section if there are popular items
+                let html = '';
+                
+                if (popularItems.length > 0) {
+                    html += `
+                        <div class="category-section popular-section">
+                            <h3>⭐ Popular</h3>
+                            <div class="menu-grid">
+                                ${popularItems.map(item => {
+                                    const itemInCart = cart.find(c => c.id === item.id);
+                                    const badge = itemInCart ? `<div class="menu-item-badge">${itemInCart.quantity}</div>` : '';
+                                    return `
+                                        <div class="menu-item" onclick="addToCartWithFeedback(${item.id})">
+                                            ${badge}
+                                            <div class="name">${item.name}</div>
+                                            <div class="price">KES ${item.price}</div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Add all categories
+                const categories = {};
+                itemsToShow.forEach(item => {
+                    const cat = item.category || 'Other';
+                    if (!categories[cat]) categories[cat] = [];
+                    categories[cat].push(item);
+                });
+
+                html += Object.entries(categories).map(([category, items]) => `
+                    <div class="category-section">
+                        <h3>${category}</h3>
+                        <div class="menu-grid">
+                            ${items.map(item => {
+                                const itemInCart = cart.find(c => c.id === item.id);
+                                const badge = itemInCart ? `<div class="menu-item-badge">${itemInCart.quantity}</div>` : '';
+                                return `
+                                    <div class="menu-item" onclick="addToCartWithFeedback(${item.id})">
+                                        ${badge}
+                                        <div class="name">${item.name}</div>
+                                        <div class="price">KES ${item.price}</div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `).join('');
+
+                grid.innerHTML = html;
+            } else {
+                // When filtering by category, just show that category
+                const categories = {};
+                itemsToShow.forEach(item => {
+                    const cat = item.category || 'Other';
+                    if (!categories[cat]) categories[cat] = [];
+                    categories[cat].push(item);
+                });
+
+                grid.innerHTML = Object.entries(categories).map(([category, items]) => `
+                    <div class="category-section">
+                        <h3>${category}</h3>
+                        <div class="menu-grid">
+                            ${items.map(item => {
+                                const itemInCart = cart.find(c => c.id === item.id);
+                                const badge = itemInCart ? `<div class="menu-item-badge">${itemInCart.quantity}</div>` : '';
+                                return `
+                                    <div class="menu-item" onclick="addToCartWithFeedback(${item.id})">
+                                        ${badge}
+                                        <div class="name">${item.name}</div>
+                                        <div class="price">KES ${item.price}</div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+        
+        // Debounce search
+        let searchTimeout;
+        function debounceFilterMenu() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(filterMenu, 300);
+        }
+        
+        // Filter menu by search
+        function filterMenu() {
+            const search = document.getElementById('menuSearch').value.toLowerCase();
+            if (!search) {
+                renderMenu();
+                return;
+            }
+            
+            let itemsToFilter = menu;
+            if (window.currentCategory && window.currentCategory !== 'ALL') {
+                itemsToFilter = menu.filter(item => (item.category || 'Other') === window.currentCategory);
+            }
+            
+            const filtered = itemsToFilter.filter(item => 
+                item.name.toLowerCase().includes(search) || 
+                (item.category && item.category.toLowerCase().includes(search))
+            );
+            
+            const grid = document.getElementById('menuGrid');
+            if (filtered.length === 0) {
+                grid.innerHTML = '<div class="empty-state">No items found for "' + search + '"</div>';
+                return;
+            }
+            
+            grid.innerHTML = `
+                <div class="category-section">
+                    <h3>🔍 Search Results (${filtered.length})</h3>
+                    <div class="menu-grid">
+                        ${filtered.map(item => {
+                            const itemInCart = cart.find(c => c.id === item.id);
+                            const badge = itemInCart ? `<div class="menu-item-badge">${itemInCart.quantity}</div>` : '';
+                            return `
+                                <div class="menu-item" onclick="addToCartWithFeedback(${item.id})">
+                                    ${badge}
+                                    <div class="name">${item.name}</div>
+                                    <div class="price">KES ${item.price}</div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Setup back to top button
+        function setupBackToTopButton() {
+            const backToTopBtn = document.getElementById('backToTopBtn');
+            const contentWrapper = document.getElementById('contentWrapper');
+            
+            if (!contentWrapper) return;
+            
+            contentWrapper.addEventListener('scroll', () => {
+                if (contentWrapper.scrollTop > 200) {
+                    backToTopBtn.classList.add('visible');
+                } else {
+                    backToTopBtn.classList.remove('visible');
+                }
+            });
+        }
+
+        // Scroll to top
+        function scrollToTop() {
+            const contentWrapper = document.getElementById('contentWrapper');
+            contentWrapper.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
+        // Cart functions
+        function addToCart(itemId) {
+            const item = menu.find(m => m.id === itemId);
+            const cartItem = cart.find(c => c.id === itemId);
+            
+            // Track popularity
+            trackItemPopularity(itemId);
+            
+            if (cartItem) {
+                cartItem.quantity++;
+                showToast(`Added ${item.name} (+1 qty)`, 'success');
+            } else {
+                cart.push({ ...item, quantity: 1 });
+                showToast(`✨ ${item.name} added to cart`, 'success');
+            }
+            
+            // Haptic feedback if available
+            if (navigator.vibrate) {
+                navigator.vibrate(10);
+            }
+            
+            renderCart();
+            renderMenu(); // Update badges and popular section
+        }
+
+        // Add to cart with visual and haptic feedback
+        function addToCartWithFeedback(itemId) {
+            addToCart(itemId);
+            
+            // Find and animate the menu item
+            const items = document.querySelectorAll('.menu-item');
+            items.forEach(item => {
+                if (item.querySelector('.name').textContent === menu.find(m => m.id === itemId).name) {
+                    item.style.animation = 'none';
+                    setTimeout(() => {
+                        item.style.animation = 'menuItemTap 0.15s ease-out';
+                    }, 10);
+                }
+            });
+        }
+
+        function updateQuantity(itemId, delta) {
+            const cartItem = cart.find(c => c.id === itemId);
+            if (cartItem) {
+                cartItem.quantity += delta;
+                if (cartItem.quantity <= 0) {
+                    cart = cart.filter(c => c.id !== itemId);
+                }
+            }
+            renderCart();
+            renderMenu(); // Update badges
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cartItems');
+            const totalEl = document.getElementById('cartTotal');
+            const statsEl = document.getElementById('cartStats');
+            const badge = document.getElementById('cartBadge');
+            
+            if (cart.length === 0) {
+                container.innerHTML = '<div class="empty-state" style="color: #bbb; opacity: 0.7;">🛒<br>Start adding items<br><small style="color: #999;">Tap menu items to add them</small></div>';
+                totalEl.textContent = 'KES 0';
+                statsEl.textContent = '🛒 Start adding items';
+                statsEl.classList.add('empty');
+                statsEl.style.opacity = '0.6';
+                statsEl.style.color = '#999';
+                badge.classList.remove('active');
+                badge.textContent = '';
+                return;
+            }
+            
+            statsEl.classList.remove('empty');
+            statsEl.style.opacity = '1';
+            statsEl.style.color = 'inherit';
+            
+            container.innerHTML = cart.map(item => `
+                <div class="cart-item">
+                    <div class="cart-item-name">${item.name}</div>
+                    <div class="cart-item-controls">
+                        <button onclick="updateQuantity(${item.id}, -1)">-</button>
+                        <div class="cart-item-quantity">${item.quantity}</div>
+                        <button onclick="updateQuantity(${item.id}, 1)">+</button>
+                        <div style="margin-left: 1rem; font-weight: 600;">KES ${item.price * item.quantity}</div>
+                    </div>
+                </div>
+            `).join('');
+            
+            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+            
+            totalEl.textContent = `KES ${total}`;
+            statsEl.textContent = `${itemCount} item${itemCount !== 1 ? 's' : ''} • KES ${total}`;
+            
+            // Update cart badge on tab
+            if (cart.length > 0) {
+                badge.textContent = cart.length;
+                badge.classList.add('active');
+            } else {
+                badge.classList.remove('active');
+            }
+        }
+
+        // Bottom sheet cart functions
+        function toggleCart() {
+            const sheet = document.getElementById('cartSheet');
+            const backdrop = document.getElementById('cartBackdrop');
+            const header = document.getElementById('cartHeader');
+            
+            if (sheet.classList.contains('cart-collapsed')) {
+                expandCart();
+            } else {
+                collapseCart();
+            }
+        }
+
+        function expandCart() {
+            const sheet = document.getElementById('cartSheet');
+            const backdrop = document.getElementById('cartBackdrop');
+            const header = document.getElementById('cartHeader');
+            
+            sheet.classList.remove('cart-collapsed');
+            sheet.classList.add('cart-expanded');
+            backdrop.classList.add('active');
+            header.classList.add('expanded');
+            
+            // Trap scroll in modal
+            document.body.style.overflow = 'hidden';
+        }
+
+        function collapseCart() {
+            const sheet = document.getElementById('cartSheet');
+            const backdrop = document.getElementById('cartBackdrop');
+            const header = document.getElementById('cartHeader');
+            
+            sheet.classList.remove('cart-expanded');
+            sheet.classList.add('cart-collapsed');
+            backdrop.classList.remove('active');
+            header.classList.remove('expanded');
+            
+            document.body.style.overflow = 'auto';
+        }
+
+        // Close cart when payment completes
+        function closeCart() {
+            const sheet = document.getElementById('cartSheet');
+            if (sheet && sheet.classList.contains('cart-expanded')) {
+                collapseCart();
+            }
+        }
+
+        function clearCart() {
+            if (cart.length === 0) {
+                showToast('Cart is already empty', 'info');
+                return;
+            }
+            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            if (confirm(`Clear ${cart.length} items (KES ${total}) from cart?`)) {
+                cart = [];
+                showToast('🗑️ Cart cleared', 'success');
+                renderCart();   // Update cart display
+                renderMenu();   // Clear quantity badges from menu items
+                closeCart();
+            }
+        }
+
+        // Payment modal
+        async function showPaymentModal() {
+            if (cart.length === 0) {
+                alert('Cart is empty!');
+                return;
+            }
+            
+            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            document.getElementById('modalTotal').textContent = `KES ${total}`;
+            document.getElementById('paymentAlert').innerHTML = '';
+            document.getElementById('studentName').value = '';
+            document.getElementById('mpesaCode').value = '';
+            document.getElementById('paymentModal').classList.add('active');
+            
+            // Load recent M-Pesa payments
+            await loadRecentPayments();
+        }
+        
+        async function loadRecentPayments() {
+            try {
+                const studentName = document.getElementById('studentName').value;
+                let response;
+                
+                if (studentName && studentName.trim()) {
+                    // Search for payments by payer name
+                    response = await apiCall(`/api/mpesa/search/${encodeURIComponent(studentName)}`);
+                } else {
+                    // Load all recent unused payments
+                    response = await apiCall(`/api/mpesa/recent`);
+                }
+                
+                const payments = await response.json();
+                renderRecentPayments(payments, studentName);
+            } catch (error) {
+                console.error('Error loading recent payments:', error);
+            }
+        }
+        
+        function renderRecentPayments(payments, studentName) {
+            const container = document.getElementById('recentPaymentsList');
+            if (!payments || payments.length === 0) {
+                const message = studentName ? 
+                    `📱 No payments found for "${studentName}"<br><small>Ask the student to verify they paid</small>` :
+                    '📱 No recent payments found<br><small>Payments will appear here when students pay via M-Pesa</small>';
+                container.innerHTML = `<div style="color: #999; text-align: center; padding: 1rem;">${message}</div>`;
+                return;
+            }
+            
+            container.innerHTML = payments.map(payment => {
+                const time = new Date(payment.created_at).toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit' 
+                });
+                const phone = payment.phone_number ? 
+                    `...${payment.phone_number.slice(-4)}` : 'N/A';
+                const payerName = payment.payer_name || 'Unknown';
+                
+                return `
+                    <div class="payment-card" data-transaction-id="${payment.id}" onclick="selectPayment('${payment.mpesa_receipt_number}', ${payment.amount}, ${payment.id})" 
+                         style="padding: 1rem; border: 2px solid #eee; border-radius: 6px; margin-bottom: 0.75rem; cursor: pointer; transition: all 0.2s; background: ${payerName === 'Unknown' ? '#fff9e6' : '#ffffff'};"
+                         onmouseover="this.style.borderColor='#667eea'; this.style.background='#f8f9ff'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.15)'"
+                         onmouseout="this.style.borderColor='#eee'; this.style.background='${payerName === 'Unknown' ? '#fff9e6' : '#ffffff'}'; this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+                            <div style="flex: 1;">
+                                <div style="font-weight: 700; color: #2c3e50; font-size: 1.25rem; margin-bottom: 0.25rem;">
+                                    ${payerName}
+                                </div>
+                                <div style="font-weight: 600; color: #667eea; font-size: 1.125rem; margin-bottom: 0.5rem;">
+                                    KES ${payment.amount}
+                                </div>
+                                <div style="font-size: 0.8rem; color: #666;">
+                                    ${time} • ${phone}
+                                </div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 0.7rem; color: #999; font-family: monospace; background: #f5f5f5; padding: 0.4rem 0.6rem; border-radius: 3px;">
+                                    ${payment.mpesa_receipt_number}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            // Auto-select the most recent payment if only one match (when searching by name)
+            if (studentName && payments.length > 0) {
+                const mostRecent = payments[0];
+                selectPayment(mostRecent.mpesa_receipt_number, mostRecent.amount, mostRecent.id);
+            }
+        }
+        
+        function selectPayment(code, amount, transactionId) {
+            const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const currentTotalPaid = parseInt(document.getElementById('totalPaidAmount').value || 0);
+            const newTotalPaid = currentTotalPaid + amount;
+            const paymentIds = document.getElementById('mpesaPaymentIds').value ? 
+                document.getElementById('mpesaPaymentIds').value.split(',') : [];
+            const codes = document.getElementById('mpesaCode').value ? 
+                document.getElementById('mpesaCode').value.split(',') : [];
+            
+            // Add this payment
+            paymentIds.push(transactionId);
+            codes.push(code);
+            document.getElementById('mpesaPaymentIds').value = paymentIds.join(',');
+            document.getElementById('mpesaCode').value = codes.join(',');
+            document.getElementById('totalPaidAmount').value = newTotalPaid;
+            
+            // Show payment summary
+            const summaryDiv = document.getElementById('paymentSummary');
+            summaryDiv.style.display = 'block';
+            document.getElementById('paymentSummaryTotal').textContent = `KES ${cartTotal}`;
+            document.getElementById('paymentSummaryReceived').textContent = `KES ${newTotalPaid}`;
+            
+            const remaining = Math.max(0, cartTotal - newTotalPaid);
+            document.getElementById('paymentSummaryRemaining').textContent = `KES ${remaining}`;
+            document.getElementById('paymentCodesUsed').textContent = codes.join(', ');
+            
+            // Update Complete button state and status badge
+            const completeBtn = document.getElementById('completeBtn');
+            const completeBtnText = document.getElementById('completeBtnText');
+            const statusBadge = document.getElementById('paymentStatus');
+            
+            if (newTotalPaid < cartTotal) {
+                // Incomplete - need more payments
+                completeBtn.disabled = true;
+                completeBtn.style.background = '#999';
+                completeBtn.style.cursor = 'not-allowed';
+                completeBtn.style.opacity = '0.6';
+                completeBtnText.textContent = `Complete (Need KES ${remaining} more)`;
+                statusBadge.textContent = '⚠️ INCOMPLETE';
+                statusBadge.style.background = '#ffc107';
+                statusBadge.style.color = '#000';
+                
+                showAlert('paymentAlert', 
+                    `⚠️ Partial Payment Added\nCart: KES ${cartTotal}\nReceived: KES ${newTotalPaid}\nStill need: KES ${remaining}\nTap another payment to add more`, 
+                    'warning');
+            } else if (newTotalPaid === cartTotal) {
+                // Exact match
+                completeBtn.disabled = false;
+                completeBtn.style.background = '#28a745';
+                completeBtn.style.cursor = 'pointer';
+                completeBtn.style.opacity = '1';
+                completeBtnText.textContent = '✅ Complete Sale (Exact)';
+                statusBadge.textContent = '✅ COMPLETE';
+                statusBadge.style.background = '#28a745';
+                statusBadge.style.color = 'white';
+                
+                showAlert('paymentAlert', `✅ Full Payment Received\nTotal: KES ${newTotalPaid}\nCodes: ${codes.join(', ')}\nReady to complete sale`, 'success');
+            } else {
+                // Overpayment
+                completeBtn.disabled = false;
+                completeBtn.style.background = '#17a2b8';
+                completeBtn.style.cursor = 'pointer';
+                completeBtn.style.opacity = '1';
+                completeBtnText.textContent = `✅ Complete Sale (Overpaid KES ${newTotalPaid - cartTotal})`;
+                statusBadge.textContent = '✅ READY (Overpay)';
+                statusBadge.style.background = '#17a2b8';
+                statusBadge.style.color = 'white';
+                
+                const extra = newTotalPaid - cartTotal;
+                const matchingItems = menu.filter(item => Math.abs(item.price - extra) <= 50);
+                const suggestedItems = matchingItems.length > 0 ? matchingItems.slice(0, 2).map(i => `${i.name} (KES ${i.price})`).join(', ') : 'None found';
+                showAlert('paymentAlert', 
+                    `✅ OVERPAYMENT RECEIVED\nCart: KES ${cartTotal}\nReceived: KES ${newTotalPaid}\nChange Owed: KES ${extra}\nSuggested items: ${suggestedItems}\nGive change or let student add items`, 
+                    'success');
+            }
+            
+            // Highlight selected
+            document.querySelectorAll('.payment-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+        }
+
+        function closePaymentModal() {
+            document.getElementById('paymentModal').classList.remove('active');
+        }
+        
+        function clearPaymentHistory() {
+            if (confirm('Reset all payments and start over?')) {
+                document.getElementById('mpesaCode').value = '';
+                document.getElementById('mpesaTransactionId').value = '';
+                document.getElementById('mpesaAmount').value = '';
+                document.getElementById('totalPaidAmount').value = '';
+                document.getElementById('mpesaPaymentIds').value = '';
+                document.getElementById('paymentSummary').style.display = 'none';
+                showAlert('paymentAlert', '🔄 Payment history cleared. Select payments again.', 'info');
+                loadRecentPayments();
+            }
+        }
+        
+        async function matchPaymentWithName() {
+            const studentName = document.getElementById('studentName').value;
+            const paymentMethod = document.getElementById('paymentMethod').value;
+            
+            // Only auto-match if M-Pesa method is selected and name is entered
+            if (paymentMethod === 'mpesa' && studentName && studentName.trim()) {
+                // Reload payments to show current ones and auto-select the most recent
+                await loadRecentPayments();
+            }
+        }
+
+        function updatePaymentFields() {
+            const method = document.getElementById('paymentMethod').value;
+            const recentPaymentsGroup = document.getElementById('recentPaymentsGroup');
+            const phoneGroup = document.getElementById('phoneGroup');
+            const phoneInput = document.getElementById('customerPhone');
+            
+            if (method === 'mpesa') {
+                // Pay First workflow - show recent payments
+                recentPaymentsGroup.style.display = 'block';
+                phoneGroup.style.display = 'none';
+                phoneInput.required = false;
+                loadRecentPayments();
+            } else {
+                // Cash payment
+                recentPaymentsGroup.style.display = 'none';
+                phoneGroup.style.display = 'none';
+                phoneInput.required = false;
+            }
+        }
+
+        async function completeSale() {
+            const paymentMethod = document.getElementById('paymentMethod').value;
+            const mpesaCodes = document.getElementById('mpesaCode').value;  // Multiple codes
+            const totalPaid = parseInt(document.getElementById('totalPaidAmount').value || 0);
+            const studentName = document.getElementById('studentName').value;
+            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            
+            console.log('Starting completeSale...', { paymentMethod, studentName, total, totalPaid, mpesaCodes });
+            
+            // Validation
+            if (paymentMethod === 'mpesa' && !mpesaCodes) {
+                showAlert('paymentAlert', 'Please select a payment from the list above', 'error');
+                return;
+            }
+            
+            // Verify MPESA total matches or exceeds cart total (for overpayment scenarios)
+            if (paymentMethod === 'mpesa' && totalPaid < total) {
+                const remaining = total - totalPaid;
+                showAlert('paymentAlert', 
+                    `❌ INCOMPLETE PAYMENT\\n\\nCart total: KES ${total}\\nAmount received: KES ${totalPaid}\\nStill need: KES ${remaining}\\n\\nPlease add another M-Pesa payment.`, 
+                    'error');
+                return;
+            }
+            
+            // Confirmation dialog
+            const paymentLabel = paymentMethod === 'cash' ? 'Cash' : 'M-Pesa';
+            const paymentInfo = paymentMethod === 'mpesa' ? 
+                `\\nM-Pesa codes: ${mpesaCodes}\\nTotal paid: KES ${totalPaid}` : '';
+            
+            if (!confirm(`Complete sale for KES ${total}?\\n\\nPayment: ${paymentLabel}\\nStudent: ${studentName || 'N/A'}${paymentInfo}`)) {
+                return;
+            }
+            
+            const completeBtn = document.getElementById('completeBtn');
+            const btnText = document.getElementById('completeBtnText');
+            completeBtn.disabled = true;
+            
+            try {
+                btnText.innerHTML = '<span class="loading"></span> Recording sale...';
+                showToast('⏳ Processing your sale...', 'info');
+                
+                // Record the sale with all payment codes
+                const saleData = {
+                    items: cart.map(c => ({
+                        name: c.name,
+                        quantity: c.quantity,
+                        price: c.price
+                    })),
+                    total,
+                    payment_method: paymentMethod,
+                    mpesa_code: mpesaCodes || null,  // Multiple codes concatenated
+                    mpesa_transaction_id: null,  // Not used when multiple payments
+                    student_name: studentName || null,
+                    customer_phone: null,
+                    vendor_id: 'main',
+                    amount_paid: paymentMethod === 'mpesa' ? totalPaid : total  // Track actual amount paid
+                };
+                
+                const response = await apiCall(`/api/sales`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(saleData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to record sale');
+                }
+                
+                const paymentSummary = paymentMethod === 'mpesa' ? 
+                    `\nM-Pesa codes: ${mpesaCodes}\nTotal paid: KES ${totalPaid}` : '';
+                
+                showToast(`✅ Sale Complete! KES ${total} ${paymentLabel}`, 'success');
+                showAlert('paymentAlert', 
+                    `✅ SALE COMPLETED\nTotal: KES ${total}\nStudent: ${studentName || 'N/A'}\nPayment: ${paymentMethod.toUpperCase()}${paymentSummary}`, 
+                    'success'
+                );
+                
+                setTimeout(() => {
+                    cart = [];
+                    renderCart();
+                    renderMenu();  // Clear quantity badges
+                    closeCart();   // Close the bottom sheet cart
+                    closePaymentModal();
+                    loadDashboard();
+                    // Clear payment fields so they don't appear next time
+                    document.getElementById('mpesaCode').value = '';
+                    document.getElementById('mpesaTransactionId').value = '';
+                    document.getElementById('mpesaAmount').value = '';
+                    document.getElementById('totalPaidAmount').value = '';
+                    document.getElementById('mpesaPaymentIds').value = '';
+                    document.getElementById('studentName').value = '';
+                    document.getElementById('paymentSummary').style.display = 'none';
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Error completing sale:', error);
+                showToast(`❌ Error: ${error.message}`, 'error');
+                showAlert('paymentAlert', `Error: ${error.message}`, 'error');
+            } finally {
+                completeBtn.disabled = false;
+                btnText.textContent = 'Complete';
+            }
+        }
+
+        // Dashboard
+        async function loadDashboard() {
+            try {
+                const response = await apiCall(`/api/sales/stats`);
+                const stats = await response.json();
+                
+                // Get all sales to filter by vendor
+                const salesResponse = await apiCall(`/api/sales?limit=1000`);
+                const allSales = await salesResponse.json();
+                
+                // Filter sales by current vendor
+                const vendorSales = allSales.filter(sale => sale.vendor_id === 'main');
+                
+                // Calculate vendor-specific stats
+                const vendorTotalSales = vendorSales.length;
+                const vendorTotalRevenue = vendorSales.reduce((sum, sale) => sum + sale.total, 0);
+                
+                document.getElementById('totalSales').textContent = vendorTotalSales;
+                document.getElementById('totalRevenue').textContent = `KES ${vendorTotalRevenue}`;
+                
+                // Calculate average order value
+                const avgOrder = vendorTotalSales > 0 ? Math.round(vendorTotalRevenue / vendorTotalSales) : 0;
+                document.getElementById('avgOrder').textContent = `KES ${avgOrder}`;
+                
+                // Count items for this vendor only
+                const itemCounts = {};
+                vendorSales.forEach(sale => {
+                    sale.items.forEach(item => {
+                        itemCounts[item.name] = (itemCounts[item.name] || 0) + item.quantity;
+                    });
+                });
+                
+                const topItem = Object.entries(itemCounts).sort((a, b) => b[1] - a[1])[0];
+                document.getElementById('topItem').textContent = topItem ? `${topItem[0]} (${topItem[1]})` : 'No sales yet';
+                
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+            }
+        }
+
+        // Sales list
+        async function loadSales() {
+            try {
+                const response = await apiCall(`/api/sales?limit=500`);
+                const allSales = await response.json();
+                
+                // Filter by current vendor
+                sales = allSales.filter(sale => sale.vendor_id === 'main');
+                
+                renderSales(sales);
+            } catch (error) {
+                console.error('Error loading sales:', error);
+            }
+        }
+
+        async function filterSales() {
+            const startDate = document.getElementById('filterStartDate').value;
+            const endDate = document.getElementById('filterEndDate').value;
+            
+            if (!startDate || !endDate) {
+                alert('Please select both start and end dates');
+                return;
+            }
+            
+            try {
+                const response = await fetch(
+                    `${API_BASE}/api/sales?startDate=${startDate}&endDate=${endDate}`
+                );
+                const allFiltered = await response.json();
+                
+                // Filter by current vendor
+                const filtered = allFiltered.filter(sale => sale.vendor_id === 'main');
+                
+                renderSales(filtered);
+            } catch (error) {
+                console.error('Error filtering sales:', error);
+            }
+        }
+
+        function renderSales(salesToShow) {
+            const container = document.getElementById('salesList');
+            
+            if (salesToShow.length === 0) {
+                container.innerHTML = '<div class="empty-state">No sales found</div>';
+                return;
+            }
+            
+            // Display sequential numbering for this vendor (newest first = highest number)
+            container.innerHTML = salesToShow.map((sale, index) => `
+                <div class="sale-item">
+                    <div class="sale-header">
+                        <div class="sale-id">#${salesToShow.length - index}</div>
+                        <div class="sale-total">KES ${sale.total}</div>
+                    </div>
+                    <div class="sale-details">
+                        ${new Date(sale.created_at).toLocaleString('en-KE')}<br>
+                        Items: ${sale.items.map(i => `${i.name} (${i.quantity})`).join(', ')}<br>
+                        Payment: ${sale.payment_method?.toUpperCase() || 'N/A'}
+                        ${sale.mpesa_code ? ` - ${sale.mpesa_code}` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Export Modal Functions
+        function openExportModal() {
+            // Set default dates (today for end date, 7 days ago for start date)
+            const today = new Date();
+            const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+            
+            document.getElementById('exportEndDate').value = today.toISOString().split('T')[0];
+            document.getElementById('exportStartDate').value = sevenDaysAgo.toISOString().split('T')[0];
+            
+            document.getElementById('exportModal').classList.add('active');
+            
+            // Preview the export data
+            previewExportData();
+        }
+
+        function closeExportModal() {
+            document.getElementById('exportModal').classList.remove('active');
+        }
+
+        function previewExportData() {
+            const startDate = document.getElementById('exportStartDate').value;
+            const endDate = document.getElementById('exportEndDate').value;
+            
+            if (!startDate || !endDate) return;
+
+            let url = `/api/export/sales?startDate=${startDate}&endDate=${endDate}`;
+            
+            apiCall(url)
+                .then(response => response.json())
+                .then(data => {
+                    const recordCount = data.length;
+                    const totalAmount = data.reduce((sum, row) => sum + (parseFloat(row['Total Amount (KES)']) || 0), 0);
+                    
+                    document.getElementById('exportPreviewCount').textContent = recordCount;
+                    document.getElementById('exportPreviewTotal').textContent = `KES ${totalAmount.toFixed(2)}`;
+                })
+                .catch(error => {
+                    console.error('Error previewing export:', error);
+                    document.getElementById('exportPreviewCount').textContent = '0';
+                    document.getElementById('exportPreviewTotal').textContent = 'KES 0';
+                });
+        }
+
+        async function confirmExport() {
+            try {
+                const startDate = document.getElementById('exportStartDate').value;
+                const endDate = document.getElementById('exportEndDate').value;
+                
+                if (!startDate || !endDate) {
+                    showToast('Please select both dates', 'error');
+                    return;
+                }
+                
+                const url = `/api/export/sales?startDate=${startDate}&endDate=${endDate}`;
+                const response = await apiCall(url);
+                
+                if (!response.ok) throw new Error('Export failed');
+                
+                const data = await response.json();
+                
+                if (data.length === 0) {
+                    showToast('No sales to export for the selected dates', 'error');
+                    return;
+                }
+                
+                // Convert to CSV
+                const headers = Object.keys(data[0]);
+                const csvContent = [
+                    headers.join(','),
+                    ...data.map(row => 
+                        headers.map(h => {
+                            const value = row[h] || '';
+                            // Escape quotes and wrap in quotes if contains comma
+                            const escaped = String(value).replace(/"/g, '""');
+                            return escaped.includes(',') ? `"${escaped}"` : escaped;
+                        }).join(',')
+                    )
+                ].join('\n');
+                
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const urlObject = URL.createObjectURL(blob);
+                link.setAttribute('href', urlObject);
+                
+                // Create meaningful file name with date range
+                const fileName = `cafeteria_sales_${startDate}_to_${endDate}.csv`;
+                link.setAttribute('download', fileName);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(urlObject);
+                
+                // Log the export to history
+                logExport(startDate, endDate, data.length, fileName);
+                
+                showToast(`✓ Exported ${data.length} sales to Excel`, 'success');
+                closeExportModal();
+            } catch (error) {
+                console.error('Error exporting:', error);
+                showToast('Error exporting sales', 'error');
+            }
+        }
+
+        async function logExport(startDate, endDate, recordCount, fileName) {
+            try {
+                await apiCall('/api/export/log', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        startDate,
+                        endDate,
+                        recordCount,
+                        fileName
+                    })
+                });
+            } catch (error) {
+                console.error('Error logging export:', error);
+                // Don't show error to user as the file was already exported
+            }
+        }
+
+        function closeExportHistoryModal() {
+            document.getElementById('exportHistoryModal').classList.remove('active');
+        }
+
+        async function showExportHistory() {
+            document.getElementById('exportHistoryModal').classList.add('active');
+            
+            try {
+                const response = await apiCall('/api/export/history?limit=50');
+                const history = await response.json();
+                
+                const historyList = document.getElementById('exportHistoryList');
+                
+                if (history.length === 0) {
+                    historyList.innerHTML = '<div style="text-align: center; color: #999; padding: 2rem;">No exports yet</div>';
+                } else {
+                    historyList.innerHTML = history.map(item => `
+                        <div style="padding: 1rem; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                <strong>${item.recordCount} records</strong>
+                                <span style="color: #666; font-size: 0.9rem;">${item.createdAt}</span>
+                            </div>
+                            <div style="color: #666; font-size: 0.9rem; margin-bottom: 0.5rem;">
+                                ${item.startDate ? item.startDate + ' to ' + item.endDate : 'All records'}
+                            </div>
+                            <div style="color: #999; font-size: 0.85rem; word-break: break-all;">
+                                📄 ${item.fileName}
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Error loading export history:', error);
+                document.getElementById('exportHistoryList').innerHTML = '<div style="text-align: center; color: #999;">Error loading history</div>';
+            }
+        }
+
+        // Keep the old exportToExcel function for backward compatibility
+        async function exportToExcel() {
+            openExportModal();
+        }
+
+        // Utility functions
+        // Toast Notification System
+        function showToast(message, type = 'info', duration = 2000) {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            
+            const icons = {
+                success: '✅',
+                error: '❌',
+                info: 'ℹ️',
+                warning: '⚠️'
+            };
+            
+            toast.innerHTML = `
+                <span style="font-size: 1.25rem; margin-right: 0.5rem;">${icons[type] || '•'}</span>
+                <span>${message}</span>
+            `;
+            
+            toast.style.cssText = `
+                position: fixed;
+                top: max(1rem, env(safe-area-inset-top));
+                left: 50%;
+                transform: translateX(-50%) translateY(-100px);
+                background: ${type === 'success' ? '#d4edda' : type === 'error' ? '#f8d7da' : type === 'warning' ? '#fff3cd' : '#d1ecf1'};
+                color: ${type === 'success' ? '#155724' : type === 'error' ? '#721c24' : type === 'warning' ? '#856404' : '#0c5460'};
+                padding: 1rem 1.5rem;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                animation: toastSlideIn 0.3s ease-out forwards;
+                border-left: 4px solid ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : type === 'warning' ? '#ffc107' : '#17a2b8'};
+            `;
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'toastSlideOut 0.3s ease-out forwards';
+                setTimeout(() => document.body.removeChild(toast), 300);
+            }, duration);
+        }
+
+        function showAlert(containerId, message, type) {
+            const container = document.getElementById(containerId);
+            // Convert escape characters to HTML line breaks
+            const formattedMessage = message.replace(/\\n/g, '<br>');
+            container.innerHTML = `
+                <div class="alert alert-${type}">
+                    ${formattedMessage}
+                </div>
+            `;
+        }
+
+        // Tab navigation
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.dataset.tab;
+                
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                const contentEl = document.getElementById(tabName);
+                contentEl.classList.add('active');
+                
+                // On mobile, scroll to the content
+                if (window.innerWidth <= 768) {
+                    const wrapper = document.getElementById('contentWrapper');
+                    const index = parseInt(contentEl.dataset.index);
+                    wrapper.scrollTo({
+                        left: index * wrapper.offsetWidth,
+                        behavior: 'smooth'
+                    });
+                }
+                
+                if (tabName === 'dashboard') {
+                    loadDashboard();
+                } else if (tabName === 'sales') {
+                    loadSales();
+                } else if (tabName === 'settings') {
+                    renderMenuList();
+                }
+            });
+        });
+
+        // Mobile: Swipe between tabs
+        if (window.innerWidth <= 768) {
+            const wrapper = document.getElementById('contentWrapper');
+            const tabs = ['sell', 'dashboard', 'sales'];
+            
+            wrapper.addEventListener('scroll', () => {
+                // Debounce to avoid excessive calls
+                clearTimeout(wrapper.scrollTimeout);
+                wrapper.scrollTimeout = setTimeout(() => {
+                    const scrollLeft = wrapper.scrollLeft;
+                    const width = wrapper.offsetWidth;
+                    const currentIndex = Math.round(scrollLeft / width);
+                    
+                    // Update active tab
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+                    
+                    const activeTab = tabs[currentIndex];
+                    document.querySelector(`.tab[data-tab="${activeTab}"]`).classList.add('active');
+                    document.getElementById(activeTab).classList.add('active');
+                    
+                    // Load data if needed
+                    if (activeTab === 'dashboard') {
+                        loadDashboard();
+                    } else if (activeTab === 'sales') {
+                        loadSales();
+                    }
+                }, 150);
+            });
+        }
+
+        // TEST M-PESA FUNCTIONS
+        async function loadTestSuggestions() {
+            try {
+                const response = await apiCall(`/api/test/suggestions`);
+                
+                if (!response.ok) {
+                    console.warn('Test suggestions not available:', response.status);
+                    return;
+                }
+                
+                const suggestions = await response.json();
+                
+                const container = document.getElementById('testSuggestions');
+                if (!container) return; // Test tab might not exist in some environments
+                
+                container.innerHTML = suggestions.map(s => `
+                    <button class="btn-primary" onclick="simulatePayment('${s.payerName}', ${s.amount}, '${s.phoneNumber}')" 
+                            style="padding: 0.75rem; text-align: left;">
+                        <strong>${s.payerName}</strong> - KES ${s.amount}
+                    </button>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading test suggestions:', error);
+                // This is not critical - test tab is optional
+            }
+        }
+        
+        function showTestStatus(message, type = 'success') {
+            const statusDiv = document.getElementById('testStatus');
+            statusDiv.textContent = message;
+            statusDiv.style.background = type === 'success' ? '#d4edda' : '#f8d7da';
+            statusDiv.style.color = type === 'success' ? '#155724' : '#721c24';
+            statusDiv.style.display = 'block';
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 5000);
+            }
+        }
+        
+        async function simulatePayment(payerName, amount, phoneNumber) {
+            try {
+                const response = await apiCall(`/api/test/simulate-mpesa`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        payerName, 
+                        amount, 
+                        phoneNumber 
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showTestStatus(`✅ Payment simulated! Name: "${payerName}", Amount: KES ${amount}. Now go to Sell tab and enter the name.`);
+                } else {
+                    showTestStatus(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error simulating payment:', error);
+                showTestStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function createTestPayment() {
+            const payerName = document.getElementById('testPayerName').value;
+            const amount = document.getElementById('testAmount').value;
+            const phoneNumber = document.getElementById('testPhone').value;
+            
+            if (!payerName || !amount) {
+                showTestStatus('Please fill in all fields', 'error');
+                return;
+            }
+            
+            await simulatePayment(payerName, parseInt(amount), phoneNumber);
+        }
+
+        // Initialize
+        async function init() {
+            // Set theme toggle icon
+            const theme = document.documentElement.getAttribute('data-theme');
+            document.querySelector('.theme-toggle').textContent = theme === 'dark' ? '☀️' : '🌙';
+            
+            // Populate settings page and user menu
+            const businessName = localStorage.getItem('businessName') || 'Your Business';
+            document.getElementById('businessNameDisplay').textContent = businessName;
+            document.getElementById('userMenuBusiness').textContent = businessName;
+            
+            const loginTime = localStorage.getItem('loginTime') || new Date().toLocaleDateString();
+            document.getElementById('accountCreatedDisplay').textContent = loginTime;
+            
+            await checkConnection();
+            if (isOnline) {
+                await loadMenu();
+                await loadDashboard();
+                await loadTestSuggestions();  // Load test suggestions
+            } else {
+                showAlert('paymentAlert', 'Cannot connect to server. Please check if the server is running.', 'error');
+            }
+            renderCart();
+        }
+
+        // Check connection periodically
+        setInterval(checkConnection, 30000);
+
+        // Handle window resize for mobile swipe functionality
+        let isMobile = window.innerWidth <= 768;
+        window.addEventListener('resize', () => {
+            const nowMobile = window.innerWidth <= 768;
+            if (nowMobile !== isMobile) {
+                isMobile = nowMobile;
+                // Reset to active tab when switching between mobile/desktop
+                const activeTab = document.querySelector('.tab.active').dataset.tab;
+                document.getElementById(activeTab).scrollIntoView();
+            }
+        });
+
+        // Touch swipe gestures for mobile cart
+        let touchStartY = 0;
+        let touchEndY = 0;
+
+        const cartSheet = document.getElementById('cartSheet');
+        if (cartSheet) {
+            cartSheet.addEventListener('touchstart', (e) => {
+                touchStartY = e.changedTouches[0].screenY;
+            }, false);
+
+            cartSheet.addEventListener('touchend', (e) => {
+                touchEndY = e.changedTouches[0].screenY;
+                handleSwipe();
+            }, false);
+        }
+
+        function handleSwipe() {
+            const sheet = document.getElementById('cartSheet');
+            if (!sheet) return;
+
+            const difference = touchEndY - touchStartY;
+            const threshold = 50;
+
+            if (Math.abs(difference) > threshold) {
+                if (difference > 0 && sheet.classList.contains('cart-expanded')) {
+                    // Swiped down
+                    collapseCart();
+                } else if (difference < 0 && sheet.classList.contains('cart-collapsed')) {
+                    // Swiped up
+                    expandCart();
+                }
+            }
+        }
+
+        // Keyboard support: Escape closes expanded cart
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const sheet = document.getElementById('cartSheet');
+                if (sheet && sheet.classList.contains('cart-expanded')) {
+                    collapseCart();
+                }
+            }
+        });
+
+        // Start the app after checking login
+        checkLogin();
+    </script>
+    </div><!-- End mainApp -->
+</body>
+</html>

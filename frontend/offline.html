@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cafeteria POS - Offline Mode</title>
+    <meta name="description" content="School Cafeteria Point of Sale System">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4CAF50">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header .status {
+            font-size: 0.875rem;
+            opacity: 0.9;
+        }
+
+        .tabs {
+            display: flex;
+            background: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 1rem;
+            text-align: center;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .tab:hover {
+            background: #f5f5f5;
+        }
+
+        .tab.active {
+            border-bottom-color: #667eea;
+            color: #667eea;
+        }
+
+        .content {
+            display: none;
+            padding: 1rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .content.active {
+            display: block;
+        }
+
+        /* Menu Grid */
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .menu-item {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .menu-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .menu-item:active {
+            transform: scale(0.98);
+        }
+
+        .menu-item .name {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .menu-item .price {
+            color: #667eea;
+            font-weight: 700;
+            font-size: 1.125rem;
+        }
+
+        .menu-item .category {
+            font-size: 0.75rem;
+            color: #999;
+            margin-top: 0.25rem;
+        }
+
+        /* Cart */
+        .cart {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .cart h2 {
+            margin-bottom: 1rem;
+            color: #667eea;
+        }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .cart-item:last-child {
+            border-bottom: none;
+        }
+
+        .cart-item-name {
+            flex: 1;
+            font-weight: 500;
+        }
+
+        .cart-item-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .cart-item button {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 4px;
+            background: #667eea;
+            color: white;
+            cursor: pointer;
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .cart-item button:hover {
+            background: #5568d3;
+        }
+
+        .cart-item-quantity {
+            min-width: 30px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .cart-total {
+            display: flex;
+            justify-content: space-between;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin: 1rem 0;
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .cart-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        button {
+            padding: 1rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #da190b;
+        }
+
+        /* Dashboard */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .stat-card .label {
+            color: #999;
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        /* Sales List */
+        .sales-list {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .sale-item {
+            padding: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .sale-item:last-child {
+            border-bottom: none;
+        }
+
+        .sale-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .sale-id {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .sale-total {
+            font-weight: 700;
+            color: #4CAF50;
+        }
+
+        .sale-details {
+            font-size: 0.875rem;
+            color: #666;
+        }
+
+        /* Settings */
+        .settings-section {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .settings-section h3 {
+            margin-bottom: 1rem;
+            color: #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal h2 {
+            margin-bottom: 1rem;
+            color: #667eea;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #999;
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        /* Filters */
+        .filters {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .filters input {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .menu-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            }
+
+            .cart-actions {
+                grid-template-columns: 1fr;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🍽️ Cafeteria POS</h1>
+        <div class="status">📱 Offline Mode | Data saved locally</div>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" data-tab="sell">💳 Sell</div>
+        <div class="tab" data-tab="dashboard">📊 Dashboard</div>
+        <div class="tab" data-tab="sales">📝 Sales</div>
+        <div class="tab" data-tab="settings">⚙️ Settings</div>
+    </div>
+
+    <!-- Sell Tab -->
+    <div class="content active" id="sell">
+        <h2 style="margin-bottom: 1rem;">Menu</h2>
+        <div class="menu-grid" id="menuGrid"></div>
+
+        <div class="cart">
+            <h2>Current Order</h2>
+            <div id="cartItems"></div>
+            <div class="cart-total">
+                <span>Total:</span>
+                <span id="cartTotal">KES 0</span>
+            </div>
+            <div class="cart-actions">
+                <button class="btn-secondary" onclick="clearCart()">Clear</button>
+                <button class="btn-primary" onclick="showPaymentModal()">Complete Sale</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Tab -->
+    <div class="content" id="dashboard">
+        <h2 style="margin-bottom: 1rem;">Today's Overview</h2>
+        <div class="stats">
+            <div class="stat-card">
+                <div class="label">Today's Sales</div>
+                <div class="value" id="todaySales">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Today's Revenue</div>
+                <div class="value" id="todayRevenue">KES 0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Total Sales</div>
+                <div class="value" id="totalSales">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Total Revenue</div>
+                <div class="value" id="totalRevenue">KES 0</div>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <h3>Quick Actions</h3>
+            <div style="display: grid; gap: 1rem;">
+                <button class="btn-primary" onclick="exportToExcel()">📥 Export to Excel</button>
+                <button class="btn-secondary" onclick="refreshDashboard()">🔄 Refresh</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sales Tab -->
+    <div class="content" id="sales">
+        <h2 style="margin-bottom: 1rem;">Sales History</h2>
+        <div class="filters">
+            <input type="date" id="filterStartDate">
+            <input type="date" id="filterEndDate">
+            <button class="btn-primary" onclick="filterSales()">Filter</button>
+            <button class="btn-secondary" onclick="showAllSales()">Show All</button>
+        </div>
+        <div class="sales-list" id="salesList"></div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div class="content" id="settings">
+        <div class="settings-section">
+            <h3>Menu Management</h3>
+            <div class="form-group">
+                <label>Item Name</label>
+                <input type="text" id="newItemName" placeholder="e.g., Chapati">
+            </div>
+            <div class="form-group">
+                <label>Price (KES)</label>
+                <input type="number" id="newItemPrice" placeholder="e.g., 15">
+            </div>
+            <div class="form-group">
+                <label>Category</label>
+                <select id="newItemCategory">
+                    <option value="Breakfast">🌅 Breakfast</option>
+                    <option value="Lunch">🍽️ Lunch</option>
+                    <option value="Dinner">🌙 Dinner</option>
+                </select>
+            </div>
+            <button class="btn-primary" onclick="addMenuItem()">Add Menu Item</button>
+        </div>
+
+        <div class="settings-section">
+            <h3>Data Management</h3>
+            <button class="btn-primary" onclick="exportToExcel()">📥 Export All Data</button>
+            <button class="btn-danger" onclick="clearAllData()" style="margin-top: 1rem;">🗑️ Clear All Data</button>
+            <p style="margin-top: 1rem; color: #999; font-size: 0.875rem;">
+                All data is stored locally on this device. Make regular backups by exporting to Excel.
+            </p>
+        </div>
+
+        <div class="settings-section">
+            <h3>About</h3>
+            <p style="color: #666; line-height: 1.6;">
+                <strong>Cafeteria POS - Offline Mode v1.0</strong><br>
+                A complete point of sale system for school cafeterias.<br><br>
+                <strong>Features:</strong><br>
+                ✅ Works completely offline<br>
+                ✅ No internet required<br>
+                ✅ Data saved on device<br>
+                ✅ Export to Excel<br>
+                ✅ Real-time dashboard<br><br>
+                Made with ❤️ for school cafeterias
+            </p>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div class="modal" id="paymentModal">
+        <div class="modal-content">
+            <h2>Complete Payment</h2>
+            <div class="cart-total" style="margin-bottom: 1rem;">
+                <span>Total:</span>
+                <span id="modalTotal">KES 0</span>
+            </div>
+            <div class="form-group">
+                <label>Payment Method</label>
+                <select id="paymentMethod">
+                    <option value="mpesa">M-Pesa (Student Already Paid)</option>
+                    <option value="cash">Cash</option>
+                </select>
+            </div>
+            <div class="form-group" id="mpesaCodeGroup">
+                <label>M-Pesa Transaction Code</label>
+                <input type="text" id="mpesaCode" placeholder="e.g., QGH7K8J9L0">
+                <small style="color: #666; font-size: 0.875rem;">Ask student for their M-Pesa code</small>
+            </div>
+            <div class="form-group">
+                <label>Student Name (Optional)</label>
+                <input type="text" id="studentName" placeholder="e.g., John Kamau">
+                <small style="color: #666; font-size: 0.875rem;">For tracking who bought what</small>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem;">
+                <button class="btn-secondary" onclick="closePaymentModal()">Cancel</button>
+                <button class="btn-primary" onclick="completeSale()">Complete</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data Storage
+        const storage = {
+            get(key) {
+                try {
+                    return JSON.parse(localStorage.getItem(key)) || [];
+                } catch {
+                    return [];
+                }
+            },
+            set(key, value) {
+                localStorage.setItem(key, JSON.stringify(value));
+            }
+        };
+
+        // Default menu items
+        const defaultMenu = [
+            // Breakfast
+            { id: 1, name: 'Eggs & Toast', price: 150, category: 'Breakfast' },
+            { id: 2, name: 'Pancakes', price: 200, category: 'Breakfast' },
+            { id: 3, name: 'Oatmeal', price: 120, category: 'Breakfast' },
+            { id: 4, name: 'Tea', price: 50, category: 'Breakfast' },
+            { id: 5, name: 'Coffee', price: 100, category: 'Breakfast' },
+            { id: 6, name: 'Mandazi', price: 80, category: 'Breakfast' },
+            // Lunch
+            { id: 7, name: 'Chapati & Beans', price: 250, category: 'Lunch' },
+            { id: 8, name: 'Rice & Stew', price: 300, category: 'Lunch' },
+            { id: 9, name: 'Ugali & Sukuma', price: 200, category: 'Lunch' },
+            { id: 10, name: 'Beef Stew', price: 350, category: 'Lunch' },
+            { id: 11, name: 'Chicken & Rice', price: 400, category: 'Lunch' },
+            { id: 12, name: 'Fish & Chips', price: 350, category: 'Lunch' },
+            // Dinner
+            { id: 13, name: 'Roasted Chicken', price: 450, category: 'Dinner' },
+            { id: 14, name: 'Grilled Fish', price: 500, category: 'Dinner' },
+            { id: 15, name: 'Beef Nyama', price: 400, category: 'Dinner' },
+            { id: 16, name: 'Chapati', price: 50, category: 'Dinner' },
+            { id: 17, name: 'Cabbage Salad', price: 150, category: 'Dinner' },
+            { id: 18, name: 'Soda', price: 100, category: 'Dinner' }
+        ];
+
+        // Initialize
+        let menu = storage.get('menu');
+        if (menu.length === 0) {
+            menu = defaultMenu;
+            storage.set('menu', menu);
+        }
+
+        let cart = [];
+        let sales = storage.get('sales');
+
+        // Render menu
+        function renderMenu() {
+            const grid = document.getElementById('menuGrid');
+            grid.innerHTML = menu.map(item => `
+                <div class="menu-item" onclick="addToCart(${item.id})">
+                    <div class="name">${item.name}</div>
+                    <div class="price">KES ${item.price}</div>
+                    <div class="category">${item.category}</div>
+                </div>
+            `).join('');
+        }
+
+        // Cart functions
+        function addToCart(itemId) {
+            const item = menu.find(m => m.id === itemId);
+            const cartItem = cart.find(c => c.id === itemId);
+            
+            if (cartItem) {
+                cartItem.quantity++;
+            } else {
+                cart.push({ ...item, quantity: 1 });
+            }
+            
+            renderCart();
+        }
+
+        function updateQuantity(itemId, delta) {
+            const cartItem = cart.find(c => c.id === itemId);
+            if (cartItem) {
+                cartItem.quantity += delta;
+                if (cartItem.quantity <= 0) {
+                    cart = cart.filter(c => c.id !== itemId);
+                }
+            }
+            renderCart();
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cartItems');
+            const totalEl = document.getElementById('cartTotal');
+            
+            if (cart.length === 0) {
+                container.innerHTML = '<div class="empty-state">Cart is empty</div>';
+                totalEl.textContent = 'KES 0';
+                return;
+            }
+            
+            container.innerHTML = cart.map(item => `
+                <div class="cart-item">
+                    <div class="cart-item-name">${item.name}</div>
+                    <div class="cart-item-controls">
+                        <button onclick="updateQuantity(${item.id}, -1)">-</button>
+                        <div class="cart-item-quantity">${item.quantity}</div>
+                        <button onclick="updateQuantity(${item.id}, 1)">+</button>
+                        <div style="margin-left: 1rem; font-weight: 600;">KES ${item.price * item.quantity}</div>
+                    </div>
+                </div>
+            `).join('');
+            
+            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            totalEl.textContent = `KES ${total}`;
+        }
+
+        function clearCart() {
+            if (confirm('Clear all items from cart?')) {
+                cart = [];
+                renderCart();
+            }
+        }
+
+        // Payment modal
+        function showPaymentModal() {
+            if (cart.length === 0) {
+                alert('Cart is empty!');
+                return;
+            }
+            
+            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            document.getElementById('modalTotal').textContent = `KES ${total}`;
+            document.getElementById('paymentModal').classList.add('active');
+        }
+
+        function closePaymentModal() {
+            document.getElementById('paymentModal').classList.remove('active');
+        }
+
+        // Camera capture for M-Pesa receipt
+        function captureReceipt() {
+            document.getElementById('receiptCapture').click();
+        }
+        
+        function showManualEntry() {
+            const input = document.getElementById('mpesaCode');
+            input.removeAttribute('readonly');
+            input.style.background = 'white';
+            input.placeholder = 'Type code here...';
+            input.focus();
+        }
+        
+        function processReceipt(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    // Show loading
+                    const mpesaInput = document.getElementById('mpesaCode');
+                    mpesaInput.value = 'Reading code...';
+                    
+                    // Extract M-Pesa code from image
+                    extractMpesaCode(e.target.result)
+                        .then(code => {
+                            if (code) {
+                                mpesaInput.value = code;
+                                mpesaInput.style.background = '#d4edda';
+                                alert('✅ Code captured: ' + code + '\n\nVerify this matches the message!');
+                            } else {
+                                mpesaInput.value = '';
+                                alert('❌ Could not read code from image.\n\nPlease:\n1. Make sure image is clear\n2. Good lighting\n3. Or type manually');
+                                showManualEntry();
+                            }
+                        })
+                        .catch(err => {
+                            console.error('OCR error:', err);
+                            mpesaInput.value = '';
+                            alert('Error reading image. Please type code manually.');
+                            showManualEntry();
+                        });
+                };
+                
+                reader.readAsDataURL(file);
+            }
+        }
+        
+        // Simple M-Pesa code extraction from image
+        async function extractMpesaCode(imageData) {
+            // Note: This is a simplified version. For production, you'd use:
+            // - Tesseract.js for OCR
+            // - Or cloud OCR API (Google Vision, AWS Textract)
+            
+            // For now, we'll use a simpler approach: manual entry after seeing photo
+            // Users can see the photo and type more accurately
+            
+            // TODO: Integrate Tesseract.js for automatic OCR
+            // For now, show the image and let user type while looking at it
+            
+            return new Promise((resolve) => {
+                // Create a modal to show the image
+                const modal = document.createElement('div');
+                modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1rem;';
+                
+                const img = document.createElement('img');
+                img.src = imageData;
+                img.style.cssText = 'max-width: 90%; max-height: 60%; border-radius: 8px; margin-bottom: 1rem;';
+                
+                const instructions = document.createElement('div');
+                instructions.style.cssText = 'color: white; text-align: center; margin-bottom: 1rem; font-size: 1rem;';
+                instructions.innerHTML = '📱 Look at the M-Pesa code in the image above<br>Type the 10-character code below:';
+                
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.placeholder = 'QGH7K8J9L0';
+                input.maxLength = 10;
+                input.style.cssText = 'padding: 1rem; font-size: 1.25rem; width: 300px; text-align: center; border-radius: 8px; border: none; text-transform: uppercase; letter-spacing: 2px;';
+                
+                const buttons = document.createElement('div');
+                buttons.style.cssText = 'display: flex; gap: 1rem; margin-top: 1rem;';
+                
+                const confirmBtn = document.createElement('button');
+                confirmBtn.textContent = '✓ Confirm';
+                confirmBtn.className = 'btn-primary';
+                confirmBtn.style.padding = '1rem 2rem';
+                confirmBtn.onclick = () => {
+                    const code = input.value.trim().toUpperCase();
+                    document.body.removeChild(modal);
+                    resolve(code);
+                };
+                
+                const cancelBtn = document.createElement('button');
+                cancelBtn.textContent = '✗ Cancel';
+                cancelBtn.className = 'btn-secondary';
+                cancelBtn.style.padding = '1rem 2rem';
+                cancelBtn.onclick = () => {
+                    document.body.removeChild(modal);
+                    resolve(null);
+                };
+                
+                buttons.appendChild(confirmBtn);
+                buttons.appendChild(cancelBtn);
+                
+                modal.appendChild(img);
+                modal.appendChild(instructions);
+                modal.appendChild(input);
+                modal.appendChild(buttons);
+                
+                document.body.appendChild(modal);
+                input.focus();
+                
+                // Auto-uppercase and limit to 10 chars
+                input.addEventListener('input', (e) => {
+                    e.target.value = e.target.value.toUpperCase();
+                });
+            });
+        }
+        
+        // Validate M-Pesa code format
+        function validateMpesaCode(code) {
+            // M-Pesa codes are typically 10 characters, alphanumeric, uppercase
+            const mpesaPattern = /^[A-Z0-9]{10}$/;
+            return mpesaPattern.test(code);
+        }
+
+        // Check if M-Pesa code was already used
+        function isCodeAlreadyUsed(code) {
+            return sales.some(sale => sale.mpesa_code === code);
+        }
+
+        function completeSale() {
+            const paymentMethod = document.getElementById('paymentMethod').value;
+            const mpesaCode = document.getElementById('mpesaCode').value.trim().toUpperCase();
+            const studentName = document.getElementById('studentName').value;
+            
+            if (paymentMethod === 'mpesa' && !mpesaCode) {
+                alert('⚠️ Please enter M-Pesa transaction code from the student\'s phone');
+                return;
+            }
+            
+            // Security validations for M-Pesa payments
+            if (paymentMethod === 'mpesa') {
+                // 1. Validate M-Pesa code format
+                if (!validateMpesaCode(mpesaCode)) {
+                    alert('⚠️ Invalid M-Pesa code format!\n\nM-Pesa codes must be:\n- Exactly 10 characters\n- Letters and numbers only\n- Example: QGH7K8J9L0\n\n⚠️ ASK TO SEE THE M-PESA MESSAGE ON STUDENT\'S PHONE!');
+                    return;
+                }
+                
+                // 2. Check for duplicate code (already used)
+                if (isCodeAlreadyUsed(mpesaCode)) {
+                    alert('🚫 FRAUD ALERT!\n\nThis M-Pesa code was already used!\n\nCode: ' + mpesaCode + '\n\nDO NOT ACCEPT THIS PAYMENT!\nStudent may be trying to reuse an old code.');
+                    return;
+                }
+                
+                // 3. Remind vendor to verify
+                const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                if (!confirm('✅ Did you verify the M-Pesa message on student\'s phone?\n\n' +
+                            '📱 Check that:\n' +
+                            '- Code: ' + mpesaCode + '\n' +
+                            '- Amount: KES ' + total + '\n' +
+                            '- Message is from TODAY\n' +
+                            '- Message is on SAFARICOM app\n\n' +
+                            'Click OK to confirm payment is valid.')) {
+                    return;
+                }
+            }
+            
+            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            
+            const sale = {
+                id: Date.now(),
+                items: cart.map(c => ({ name: c.name, quantity: c.quantity, price: c.price })),
+                total,
+                payment_method: paymentMethod,
+                mpesa_code: mpesaCode || null,
+                customer_phone: studentName || null,
+                created_at: new Date().toISOString()
+            };
+            
+            sales.push(sale);
+            storage.set('sales', sales);
+            
+            alert('✅ Sale completed successfully!');
+            cart = [];
+            renderCart();
+            closePaymentModal();
+            refreshDashboard();
+        }
+
+        // Payment method change
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('paymentMethod').addEventListener('change', (e) => {
+                const mpesaGroup = document.getElementById('mpesaCodeGroup');
+                mpesaGroup.style.display = e.target.value === 'mpesa' ? 'block' : 'none';
+            });
+        });
+
+        // Dashboard
+        function refreshDashboard() {
+            const today = new Date().toDateString();
+            const todaySales = sales.filter(s => new Date(s.created_at).toDateString() === today);
+            
+            document.getElementById('todaySales').textContent = todaySales.length;
+            document.getElementById('todayRevenue').textContent = 
+                `KES ${todaySales.reduce((sum, s) => sum + s.total, 0)}`;
+            document.getElementById('totalSales').textContent = sales.length;
+            document.getElementById('totalRevenue').textContent = 
+                `KES ${sales.reduce((sum, s) => sum + s.total, 0)}`;
+            
+            renderSales();
+        }
+
+        // Sales list
+        function renderSales(filteredSales = null) {
+            const container = document.getElementById('salesList');
+            const salesToShow = filteredSales || sales.slice().reverse();
+            
+            if (salesToShow.length === 0) {
+                container.innerHTML = '<div class="empty-state">No sales yet</div>';
+                return;
+            }
+            
+            container.innerHTML = salesToShow.map(sale => `
+                <div class="sale-item">
+                    <div class="sale-header">
+                        <div class="sale-id">#${sale.id}</div>
+                        <div class="sale-total">KES ${sale.total}</div>
+                    </div>
+                    <div class="sale-details">
+                        ${new Date(sale.created_at).toLocaleString('en-KE')}<br>
+                        Items: ${sale.items.map(i => `${i.name} (${i.quantity})`).join(', ')}<br>
+                        Payment: ${sale.payment_method.toUpperCase()}
+                        ${sale.mpesa_code ? ` - ${sale.mpesa_code}` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function filterSales() {
+            const startDate = document.getElementById('filterStartDate').value;
+            const endDate = document.getElementById('filterEndDate').value;
+            
+            if (!startDate || !endDate) {
+                alert('Please select both start and end dates');
+                return;
+            }
+            
+            const filtered = sales.filter(sale => {
+                const saleDate = new Date(sale.created_at).toDateString();
+                return saleDate >= new Date(startDate).toDateString() && 
+                       saleDate <= new Date(endDate).toDateString();
+            }).reverse();
+            
+            renderSales(filtered);
+        }
+
+        function showAllSales() {
+            document.getElementById('filterStartDate').value = '';
+            document.getElementById('filterEndDate').value = '';
+            renderSales();
+        }
+
+        // Menu management
+        function addMenuItem() {
+            const name = document.getElementById('newItemName').value;
+            const price = parseFloat(document.getElementById('newItemPrice').value);
+            const category = document.getElementById('newItemCategory').value;
+            
+            if (!name || !price) {
+                alert('Please fill in all fields');
+                return;
+            }
+            
+            const newItem = {
+                id: Date.now(),
+                name,
+                price,
+                category
+            };
+            
+            menu.push(newItem);
+            storage.set('menu', menu);
+            renderMenu();
+            
+            document.getElementById('newItemName').value = '';
+            document.getElementById('newItemPrice').value = '';
+            
+            alert('Menu item added successfully!');
+        }
+
+        // Export to Excel
+        function exportToExcel() {
+            if (sales.length === 0) {
+                alert('No sales to export');
+                return;
+            }
+            
+            const csvContent = [
+                ['Sale ID', 'Date', 'Items', 'Total (KES)', 'Payment Method', 'M-Pesa Code', 'Customer Phone'],
+                ...sales.map(sale => [
+                    sale.id,
+                    new Date(sale.created_at).toLocaleString('en-KE'),
+                    sale.items.map(i => `${i.name} (${i.quantity})`).join('; '),
+                    sale.total,
+                    sale.payment_method,
+                    sale.mpesa_code || 'N/A',
+                    sale.customer_phone || 'N/A'
+                ])
+            ].map(row => row.join(',')).join('\n');
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `cafeteria_sales_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Clear all data
+        function clearAllData() {
+            if (confirm('Are you sure? This will delete ALL sales and menu data. This cannot be undone!')) {
+                if (confirm('Really sure? Export your data first if needed!')) {
+                    localStorage.clear();
+                    location.reload();
+                }
+            }
+        }
+
+        // Tab navigation
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.dataset.tab;
+                
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(tabName).classList.add('active');
+                
+                if (tabName === 'dashboard') {
+                    refreshDashboard();
+                } else if (tabName === 'sales') {
+                    renderSales();
+                }
+            });
+        });
+
+        // Initialize
+        renderMenu();
+        renderCart();
+        refreshDashboard();
+    </script>
+</body>
+</html>
