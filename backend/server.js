@@ -3,12 +3,46 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const axios = require('axios');
 const path = require('path');
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const dbAdapter = require('./db-adapter');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Setup email transporter
+let emailTransporter;
+
+function setupEmailTransporter() {
+  if (process.env.EMAIL_SMTP_HOST) {
+    // Custom SMTP configuration
+    emailTransporter = nodemailer.createTransport({
+      host: process.env.EMAIL_SMTP_HOST,
+      port: parseInt(process.env.EMAIL_SMTP_PORT || '587'),
+      secure: process.env.EMAIL_SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.EMAIL_SMTP_USER,
+        pass: process.env.EMAIL_SMTP_PASSWORD
+      }
+    });
+    console.log('Email configured with custom SMTP');
+  } else if (process.env.EMAIL_SERVICE && process.env.EMAIL_FROM && process.env.EMAIL_PASSWORD) {
+    // Gmail or other service
+    emailTransporter = nodemailer.createTransport({
+      service: process.env.EMAIL_SERVICE,
+      auth: {
+        user: process.env.EMAIL_FROM,
+        pass: process.env.EMAIL_PASSWORD
+      }
+    });
+    console.log(`Email configured with ${process.env.EMAIL_SERVICE}`);
+  } else {
+    console.warn('Email configuration incomplete. Email sending will be disabled.');
+  }
+}
+
+setupEmailTransporter();
 
 // Middleware
 app.use(cors());
@@ -27,6 +61,7 @@ function initializeDatabase() {
     // Menu items table
     db.run(`CREATE TABLE IF NOT EXISTS menu_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      business_id INTEGER DEFAULT 1,
       name TEXT NOT NULL,
       price REAL NOT NULL,
       category TEXT,
@@ -38,6 +73,7 @@ function initializeDatabase() {
     // Sales table
     db.run(`CREATE TABLE IF NOT EXISTS sales (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      business_id INTEGER DEFAULT 1,
       items TEXT NOT NULL,
       total REAL NOT NULL,
       payment_method TEXT NOT NULL,
@@ -52,6 +88,7 @@ function initializeDatabase() {
     // M-Pesa transactions table
     db.run(`CREATE TABLE IF NOT EXISTS mpesa_transactions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      business_id INTEGER DEFAULT 1,
       merchant_request_id TEXT,
       checkout_request_id TEXT,
       result_code INTEGER,
@@ -67,7 +104,17 @@ function initializeDatabase() {
       if (err) console.error('Error creating mpesa_transactions table:', err);
     });
 
-    // Authentication table - stores login PIN for this business
+    // Businesses table - stores multiple businesses
+    db.run(`CREATE TABLE IF NOT EXISTS businesses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      pin_hash TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`, (err) => {
+      if (err) console.error('Error creating businesses table:', err);
+    });
+
+    // Authentication table - stores login PIN for this business (kept for backward compatibility)
     db.run(`CREATE TABLE IF NOT EXISTS business_auth (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       business_name TEXT NOT NULL,
@@ -103,21 +150,78 @@ function initializeDatabase() {
       }
     });
 
-    // Add payer_name column if it doesn't exist (for existing databases)
-    db.run(`PRAGMA table_info(mpesa_transactions)`, (err, columns) => {
-      if (!err && columns) {
-        const hasPayerName = columns.some(col => col.name === 'payer_name');
-        if (!hasPayerName) {
-          db.run(`ALTER TABLE mpesa_transactions ADD COLUMN payer_name TEXT`, (err) => {
-            if (err) {
-              console.error('Error adding payer_name column:', err);
-            } else {
-              console.log('✓ Added payer_name column to mpesa_transactions');
-            }
-          });
-        }
+    // Migrate business_auth to businesses table if needed
+    db.get('SELECT COUNT(*) as count FROM businesses', (err, row) => {
+      if (!err && row && row.count === 0) {
+        db.all('SELECT * FROM business_auth', (err, rows) => {
+          if (!err && rows && rows.length > 0) {
+            rows.forEach(authRow => {
+              db.run('INSERT OR IGNORE INTO businesses (id, name, pin_hash) VALUES (?, ?, ?)',
+                [1, authRow.business_name, authRow.pin_hash],
+                (err) => {
+                  if (!err) console.log('✓ Migrated business_auth to businesses table');
+                }
+              );
+            });
+          } else {
+            // No existing data, create default business
+            const defaultPin = require('crypto').createHash('sha256').update('0000').digest('hex');
+            db.run('INSERT OR IGNORE INTO businesses (id, name, pin_hash) VALUES (?, ?, ?)',
+              [1, 'Cafeteria POS', defaultPin],
+              (err) => {
+                if (!err) console.log('✓ Default business created in businesses table');
+              }
+            );
+          }
+        });
       }
     });
+
+    // Add business_id columns to existing tables if they don't exist
+    const addBusinessIdColumns = () => {
+      db.run(`ALTER TABLE sales ADD COLUMN business_id INTEGER DEFAULT 1`, (err) => {
+        if (err && err.message.includes('duplicate')) {
+          // Column already exists, that's fine
+        } else if (err) {
+          console.log('Info: business_id column may already exist in sales');
+        } else {
+          console.log('✓ Added business_id column to sales');
+        }
+      });
+
+      db.run(`ALTER TABLE menu_items ADD COLUMN business_id INTEGER DEFAULT 1`, (err) => {
+        if (err && err.message.includes('duplicate')) {
+          // Column already exists, that's fine
+        } else if (err) {
+          console.log('Info: business_id column may already exist in menu_items');
+        } else {
+          console.log('✓ Added business_id column to menu_items');
+        }
+      });
+
+      db.run(`ALTER TABLE mpesa_transactions ADD COLUMN business_id INTEGER DEFAULT 1`, (err) => {
+        if (err && err.message.includes('duplicate')) {
+          // Column already exists, that's fine
+        } else if (err) {
+          console.log('Info: business_id column may already exist in mpesa_transactions');
+        } else {
+          console.log('✓ Added business_id column to mpesa_transactions');
+        }
+      });
+
+      db.run(`ALTER TABLE mpesa_transactions ADD COLUMN payer_name TEXT`, (err) => {
+        if (err && err.message.includes('duplicate')) {
+          // Column already exists, that's fine
+        } else if (err) {
+          console.log('Info: payer_name column may already exist in mpesa_transactions');
+        } else {
+          console.log('✓ Added payer_name column to mpesa_transactions');
+        }
+      });
+    };
+
+    // Run migration after a short delay to ensure tables exist
+    setTimeout(addBusinessIdColumns, 100);
 
     // Add used column if it doesn't exist
     db.run(`PRAGMA table_info(mpesa_transactions)`, (err, columns) => {
@@ -206,6 +310,11 @@ function authenticateRequest(req, res, next) {
   if (!sessions.has(token)) {
     return res.status(401).json({ error: 'Session expired' });
   }
+
+  // Attach business info to request
+  const session = sessions.get(token);
+  req.businessId = session.businessId;
+  req.businessName = session.businessName;
   
   next();
 }
@@ -220,24 +329,47 @@ app.post('/api/auth/login', (req, res) => {
   
   const pinHash = crypto.createHash('sha256').update(pin).digest('hex');
   
-  db.get('SELECT * FROM business_auth WHERE pin_hash = ?', [pinHash], (err, row) => {
+  // Try to find business in new businesses table first, then fall back to business_auth
+  db.get('SELECT * FROM businesses WHERE pin_hash = ?', [pinHash], (err, row) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
     
-    if (!row) {
-      return res.status(401).json({ error: 'Invalid PIN' });
+    if (row) {
+      // Create session token with business_id
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiryTime = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+      sessions.set(token, { expiryTime, businessId: row.id, businessName: row.name });
+      
+      return res.json({ 
+        token, 
+        businessId: row.id,
+        businessName: row.name,
+        message: 'Login successful' 
+      });
     }
-    
-    // Create session token
-    const token = crypto.randomBytes(32).toString('hex');
-    const expiryTime = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
-    sessions.set(token, { expiryTime, businessName: row.business_name });
-    
-    res.json({ 
-      token, 
-      businessName: row.business_name,
-      message: 'Login successful' 
+
+    // Fall back to business_auth for backward compatibility
+    db.get('SELECT * FROM business_auth WHERE pin_hash = ?', [pinHash], (err, row) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      
+      if (!row) {
+        return res.status(401).json({ error: 'Invalid PIN' });
+      }
+      
+      // Create session token with business_id = 1 (default)
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiryTime = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+      sessions.set(token, { expiryTime, businessId: 1, businessName: row.business_name });
+      
+      res.json({ 
+        token, 
+        businessId: 1,
+        businessName: row.business_name,
+        message: 'Login successful' 
+      });
     });
   });
 });
@@ -253,21 +385,38 @@ app.post('/api/auth/change-pin', authenticateRequest, (req, res) => {
   const oldPinHash = crypto.createHash('sha256').update(oldPin).digest('hex');
   const newPinHash = crypto.createHash('sha256').update(newPin).digest('hex');
   
-  db.get('SELECT * FROM business_auth WHERE pin_hash = ?', [oldPinHash], (err, row) => {
+  // Try new businesses table first
+  db.get('SELECT * FROM businesses WHERE id = ? AND pin_hash = ?', [req.businessId, oldPinHash], (err, row) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
     
-    if (!row) {
-      return res.status(401).json({ error: 'Incorrect old PIN' });
+    if (row) {
+      db.run('UPDATE businesses SET pin_hash = ? WHERE id = ?', [newPinHash, req.businessId], (err) => {
+        if (err) {
+          return res.status(500).json({ error: err.message });
+        }
+        res.json({ message: 'PIN changed successfully' });
+      });
+    } else {
+      // Fall back to business_auth for backward compatibility
+      db.get('SELECT * FROM business_auth WHERE pin_hash = ?', [oldPinHash], (err, row) => {
+        if (err) {
+          return res.status(500).json({ error: err.message });
+        }
+        
+        if (!row) {
+          return res.status(401).json({ error: 'Incorrect old PIN' });
+        }
+        
+        db.run('UPDATE business_auth SET pin_hash = ? WHERE id = ?', [newPinHash, row.id], (err) => {
+          if (err) {
+            return res.status(500).json({ error: err.message });
+          }
+          res.json({ message: 'PIN changed successfully' });
+        });
+      });
     }
-    
-    db.run('UPDATE business_auth SET pin_hash = ? WHERE id = ?', [newPinHash, row.id], (err) => {
-      if (err) {
-        return res.status(500).json({ error: err.message });
-      }
-      res.json({ message: 'PIN changed successfully' });
-    });
   });
 });
 
@@ -276,6 +425,85 @@ app.post('/api/auth/logout', (req, res) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (token) sessions.delete(token);
   res.json({ message: 'Logged out' });
+});
+
+// POST /api/businesses - Create a new business
+app.post('/api/businesses', authenticateRequest, (req, res) => {
+  const { name, pin } = req.body;
+  
+  if (!name || !pin) {
+    return res.status(400).json({ error: 'Business name and PIN required' });
+  }
+  
+  if (name.length < 2) {
+    return res.status(400).json({ error: 'Business name must be at least 2 characters' });
+  }
+  
+  if (pin.length < 4) {
+    return res.status(400).json({ error: 'PIN must be at least 4 characters' });
+  }
+  
+  const pinHash = crypto.createHash('sha256').update(pin).digest('hex');
+  
+  db.run('INSERT INTO businesses (name, pin_hash) VALUES (?, ?)', [name, pinHash], function(err) {
+    if (err) {
+      if (err.message.includes('UNIQUE')) {
+        return res.status(400).json({ error: 'Business name already exists' });
+      }
+      return res.status(500).json({ error: err.message });
+    }
+    
+    const businessId = this.lastID;
+    
+    // Populate default menu items for the new business
+    const defaultItems = [
+      // Breakfast
+      [businessId, 'Eggs & Toast', 150, 'Breakfast'],
+      [businessId, 'Pancakes', 200, 'Breakfast'],
+      [businessId, 'Oatmeal', 120, 'Breakfast'],
+      [businessId, 'Tea', 50, 'Breakfast'],
+      [businessId, 'Coffee', 100, 'Breakfast'],
+      [businessId, 'Mandazi', 80, 'Breakfast'],
+      
+      // Lunch
+      [businessId, 'Chapati & Beans', 250, 'Lunch'],
+      [businessId, 'Rice & Stew', 300, 'Lunch'],
+      [businessId, 'Ugali & Sukuma', 200, 'Lunch'],
+      [businessId, 'Beef Stew', 350, 'Lunch'],
+      [businessId, 'Chicken & Rice', 400, 'Lunch'],
+      [businessId, 'Fish & Chips', 350, 'Lunch'],
+      
+      // Dinner
+      [businessId, 'Roasted Chicken', 450, 'Dinner'],
+      [businessId, 'Grilled Fish', 500, 'Dinner'],
+      [businessId, 'Beef Nyama', 400, 'Dinner'],
+      [businessId, 'Chapati', 50, 'Dinner'],
+      [businessId, 'Cabbage Salad', 150, 'Dinner'],
+      [businessId, 'Soda', 100, 'Dinner']
+    ];
+
+    const stmt = db.prepare('INSERT INTO menu_items (business_id, name, price, category) VALUES (?, ?, ?, ?)');
+    defaultItems.forEach(item => stmt.run(item, (err) => {
+      if (err) console.error('Error inserting menu item:', err);
+    }));
+    stmt.finalize();
+    
+    res.json({
+      id: businessId,
+      name,
+      message: 'Business created successfully with default menu items'
+    });
+  });
+});
+
+// GET /api/businesses - List all businesses
+app.get('/api/businesses', authenticateRequest, (req, res) => {
+  db.all('SELECT id, name, created_at FROM businesses ORDER BY created_at DESC', (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(rows || []);
+  });
 });
 
 // ============ M-Pesa Integration ============
@@ -317,7 +545,7 @@ const mpesaService = new MPesaService();
 
 // Menu Items
 app.get('/api/menu', authenticateRequest, (req, res) => {
-  db.all('SELECT * FROM menu_items WHERE available = 1 ORDER BY category, name', (err, rows) => {
+  db.all('SELECT * FROM menu_items WHERE business_id = ? AND available = 1 ORDER BY category, name', [req.businessId], (err, rows) => {
     if (err) {
       res.status(500).json({ error: err.message });
     } else {
@@ -326,11 +554,22 @@ app.get('/api/menu', authenticateRequest, (req, res) => {
   });
 });
 
-app.post('/api/menu', (req, res) => {
+// GET /api/menu/all - Get ALL menu items including unavailable (for vendor management)
+app.get('/api/menu/all', authenticateRequest, (req, res) => {
+  db.all('SELECT * FROM menu_items WHERE business_id = ? ORDER BY category, name', [req.businessId], (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+    } else {
+      res.json(rows);
+    }
+  });
+});
+
+app.post('/api/menu', authenticateRequest, (req, res) => {
   const { name, price, category, image_url } = req.body;
   db.run(
-    'INSERT INTO menu_items (name, price, category, image_url) VALUES (?, ?, ?, ?)',
-    [name, price, category, image_url],
+    'INSERT INTO menu_items (business_id, name, price, category, image_url) VALUES (?, ?, ?, ?, ?)',
+    [req.businessId, name, price, category, image_url],
     function(err) {
       if (err) {
         res.status(500).json({ error: err.message });
@@ -341,12 +580,12 @@ app.post('/api/menu', (req, res) => {
   );
 });
 
-app.put('/api/menu/:id', (req, res) => {
+app.put('/api/menu/:id', authenticateRequest, (req, res) => {
   const { id } = req.params;
   const { name, price, category, available } = req.body;
   db.run(
-    'UPDATE menu_items SET name = ?, price = ?, category = ?, available = ? WHERE id = ?',
-    [name, price, category, available, id],
+    'UPDATE menu_items SET name = ?, price = ?, category = ?, available = ? WHERE id = ? AND business_id = ?',
+    [name, price, category, available, id, req.businessId],
     (err) => {
       if (err) {
         res.status(500).json({ error: err.message });
@@ -357,9 +596,9 @@ app.put('/api/menu/:id', (req, res) => {
   );
 });
 
-app.delete('/api/menu/:id', (req, res) => {
+app.delete('/api/menu/:id', authenticateRequest, (req, res) => {
   const { id } = req.params;
-  db.run('DELETE FROM menu_items WHERE id = ?', [id], (err) => {
+  db.run('DELETE FROM menu_items WHERE id = ? AND business_id = ?', [id, req.businessId], (err) => {
     if (err) {
       res.status(500).json({ error: err.message });
     } else {
@@ -370,20 +609,36 @@ app.delete('/api/menu/:id', (req, res) => {
 
 // Sales
 app.post('/api/sales', authenticateRequest, (req, res) => {
-  const { items, total, payment_method, mpesa_code, mpesa_transaction_id, customer_phone, student_name, vendor_id } = req.body;
+  const { items, total, payment_method, mpesa_code, mpesa_transaction_id, mpesa_transaction_ids, customer_phone, student_name, vendor_id } = req.body;
   
   db.run(
-    'INSERT INTO sales (items, total, payment_method, mpesa_code, mpesa_transaction_id, customer_phone, student_name, vendor_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [JSON.stringify(items), total, payment_method, mpesa_code, mpesa_transaction_id || null, customer_phone, student_name, vendor_id],
+    'INSERT INTO sales (business_id, items, total, payment_method, mpesa_code, mpesa_transaction_id, customer_phone, student_name, vendor_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [req.businessId, JSON.stringify(items), total, payment_method, mpesa_code, mpesa_transaction_id || null, customer_phone, student_name, vendor_id],
     function(err) {
       if (err) {
         res.status(500).json({ error: err.message });
       } else {
-        // Mark M-Pesa transaction as used if provided
-        if (mpesa_transaction_id) {
+        const saleId = this.lastID;
+        
+        // Mark M-Pesa transactions as used
+        // Handle multiple transaction IDs (new feature)
+        if (mpesa_transaction_ids && mpesa_transaction_ids.trim()) {
+          const transactionIds = mpesa_transaction_ids.split(',').map(id => parseInt(id.trim()));
+          transactionIds.forEach(transId => {
+            db.run(
+              'UPDATE mpesa_transactions SET used = 1, used_in_sale_id = ? WHERE id = ? AND business_id = ?',
+              [saleId, transId, req.businessId],
+              (err) => {
+                if (err) console.error('Error marking transaction as used:', err);
+              }
+            );
+          });
+        } 
+        // Handle single transaction ID (backward compatibility)
+        else if (mpesa_transaction_id) {
           db.run(
-            'UPDATE mpesa_transactions SET used = 1, used_in_sale_id = ? WHERE id = ?',
-            [this.lastID, mpesa_transaction_id],
+            'UPDATE mpesa_transactions SET used = 1, used_in_sale_id = ? WHERE id = ? AND business_id = ?',
+            [saleId, mpesa_transaction_id, req.businessId],
             (err) => {
               if (err) console.error('Error marking transaction as used:', err);
             }
@@ -391,7 +646,7 @@ app.post('/api/sales', authenticateRequest, (req, res) => {
         }
         
         res.json({ 
-          id: this.lastID, 
+          id: saleId, 
           success: true,
           message: 'Sale recorded successfully'
         });
@@ -402,11 +657,11 @@ app.post('/api/sales', authenticateRequest, (req, res) => {
 
 app.get('/api/sales', authenticateRequest, (req, res) => {
   const { startDate, endDate, limit } = req.query;
-  let query = 'SELECT * FROM sales';
-  const params = [];
+  let query = 'SELECT * FROM sales WHERE business_id = ?';
+  const params = [req.businessId];
 
   if (startDate && endDate) {
-    query += ' WHERE created_at BETWEEN ? AND ?';
+    query += ' AND created_at BETWEEN ? AND ?';
     params.push(startDate, endDate);
   }
 
@@ -434,11 +689,11 @@ app.get('/api/sales', authenticateRequest, (req, res) => {
 app.get('/api/sales/stats', authenticateRequest, (req, res) => {
   const { startDate, endDate } = req.query;
   
-  let query = 'SELECT COUNT(*) as count, SUM(total) as revenue FROM sales';
-  const params = [];
+  let query = 'SELECT COUNT(*) as count, SUM(total) as revenue FROM sales WHERE business_id = ?';
+  const params = [req.businessId];
 
   if (startDate && endDate) {
-    query += ' WHERE created_at BETWEEN ? AND ?';
+    query += ' AND created_at BETWEEN ? AND ?';
     params.push(startDate, endDate);
   }
 
@@ -464,10 +719,10 @@ app.get('/api/mpesa/recent', authenticateRequest, (req, res) => {
   db.all(
     `SELECT id, amount, mpesa_receipt_number, phone_number, payer_name, created_at 
      FROM mpesa_transactions 
-     WHERE created_at > ? AND used = 0
+     WHERE business_id = ? AND created_at > ? AND used = 0
      ORDER BY created_at DESC 
      LIMIT ?`,
-    [cutoffTime, limit],
+    [req.businessId, cutoffTime, limit],
     (err, rows) => {
       if (err) {
         res.status(500).json({ error: err.message });
@@ -489,9 +744,9 @@ app.get('/api/mpesa/search/:studentName', authenticateRequest, (req, res) => {
   db.all(
     `SELECT id, amount, mpesa_receipt_number, phone_number, payer_name, created_at 
      FROM mpesa_transactions 
-     WHERE created_at > ? AND used = 0 AND payer_name LIKE ?
+     WHERE business_id = ? AND created_at > ? AND used = 0 AND payer_name LIKE ?
      ORDER BY created_at DESC`,
-    [cutoffTime, searchName],
+    [req.businessId, cutoffTime, searchName],
     (err, rows) => {
       if (err) {
         res.status(500).json({ error: err.message });
@@ -518,9 +773,10 @@ app.post('/api/mpesa/callback', (req, res) => {
     
     db.run(
       `INSERT INTO mpesa_transactions 
-       (merchant_request_id, checkout_request_id, result_code, result_desc, amount, mpesa_receipt_number, phone_number, payer_name) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       (business_id, merchant_request_id, checkout_request_id, result_code, result_desc, amount, mpesa_receipt_number, phone_number, payer_name) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        1, // Default to business_id 1 for callbacks (can be improved with headers or config)
         callback.MerchantRequestID,
         callback.CheckoutRequestID,
         callback.ResultCode,
@@ -545,7 +801,7 @@ app.post('/api/mpesa/callback', (req, res) => {
 
 // TEST ROUTE: Simulate M-Pesa payment (for development/testing only)
 app.post('/api/test/simulate-mpesa', (req, res) => {
-  const { amount, payerName, phoneNumber } = req.body;
+  const { amount, payerName, phoneNumber, businessId = 1 } = req.body;
   
   if (!amount || !payerName || !phoneNumber) {
     return res.status(400).json({ 
@@ -559,9 +815,10 @@ app.post('/api/test/simulate-mpesa', (req, res) => {
   
   db.run(
     `INSERT INTO mpesa_transactions 
-     (merchant_request_id, checkout_request_id, result_code, result_desc, amount, mpesa_receipt_number, phone_number, payer_name) 
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+     (business_id, merchant_request_id, checkout_request_id, result_code, result_desc, amount, mpesa_receipt_number, phone_number, payer_name) 
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
+      businessId,
       'TEST_' + Date.now(),
       'TEST_' + Date.now(),
       0,
@@ -620,11 +877,12 @@ app.get('/api/export/sales', authenticateRequest, (req, res) => {
       s.mpesa_transaction_id,
       s.created_at
     FROM sales s
+    WHERE s.business_id = ?
   `;
-  const params = [];
+  const params = [req.businessId];
 
   if (startDate && endDate) {
-    query += ' WHERE s.created_at BETWEEN ? AND ?';
+    query += ' AND s.created_at BETWEEN ? AND ?';
     params.push(startDate, endDate);
   }
 
@@ -711,6 +969,274 @@ app.get('/api/export/history', authenticateRequest, (req, res) => {
     }
   );
 });
+
+// ============ RECEIPT GENERATION ENDPOINTS ============
+
+// GET /api/receipts/:saleId - Get receipt data for a specific sale
+app.get('/api/receipts/:saleId', authenticateRequest, (req, res) => {
+  const { saleId } = req.params;
+  
+  db.get('SELECT * FROM sales WHERE id = ? AND business_id = ?', [saleId, req.businessId], (err, sale) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    if (!sale) {
+      return res.status(404).json({ error: 'Sale not found' });
+    }
+    
+    // Parse items JSON
+    const items = JSON.parse(sale.items);
+    
+    // Get business name
+    db.get('SELECT name FROM businesses WHERE id = ?', [req.businessId], (err, business) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      
+      const receiptData = {
+        id: sale.id,
+        businessName: business?.name || 'Cafeteria POS',
+        studentName: sale.student_name,
+        items: items,
+        total: sale.total,
+        paymentMethod: sale.payment_method,
+        mpesaCode: sale.mpesa_code,
+        customerPhone: sale.customer_phone,
+        date: new Date(sale.created_at).toLocaleString('en-KE'),
+        receiptId: `RCP-${sale.business_id}-${sale.id}`.padStart(10, '0')
+      };
+      
+      res.json(receiptData);
+    });
+  });
+});
+
+// POST /api/receipts/send-email - Send receipt via email
+app.post('/api/receipts/send-email', authenticateRequest, (req, res) => {
+  const { saleId, email } = req.body;
+  
+  if (!email) {
+    return res.status(400).json({ error: 'Email address required' });
+  }
+  
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: 'Invalid email address format' });
+  }
+  
+  // Check if email is configured
+  if (!emailTransporter) {
+    return res.status(503).json({ error: 'Email service is not configured. Please set EMAIL_SERVICE, EMAIL_FROM, and EMAIL_PASSWORD in environment variables.' });
+  }
+  
+  // Get receipt data
+  db.get('SELECT * FROM sales WHERE id = ? AND business_id = ?', [saleId, req.businessId], (err, sale) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    if (!sale) {
+      return res.status(404).json({ error: 'Sale not found' });
+    }
+    
+    const items = JSON.parse(sale.items);
+    const receiptId = `RCP-${sale.business_id}-${sale.id}`.padStart(10, '0');
+    
+    // Get business name
+    db.get('SELECT name FROM businesses WHERE id = ?', [req.businessId], (err, business) => {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to fetch business info' });
+      }
+      
+      const businessName = business?.name || 'Cafeteria POS';
+      
+      // Generate HTML receipt
+      const htmlReceipt = generateReceiptHTML({
+        id: sale.id,
+        businessName: businessName,
+        studentName: sale.student_name,
+        items: items,
+        total: sale.total,
+        paymentMethod: sale.payment_method,
+        mpesaCode: sale.mpesa_code,
+        date: new Date(sale.created_at).toLocaleString('en-KE'),
+        receiptId: receiptId
+      });
+      
+      // Send email
+      const mailOptions = {
+        from: process.env.EMAIL_FROM || 'noreply@cafeteriapos.com',
+        to: email,
+        subject: `Your Receipt from ${businessName} - Transaction #${receiptId}`,
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+            <div style="background-color: #f5f5f5; padding: 20px 0;">
+              <!-- Email Wrapper -->
+              <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
+                
+                <!-- Header Banner -->
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; text-align: center; color: white;">
+                  <h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: 0.5px;">Thank You for Your Purchase</h1>
+                  <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.95;">Your transaction has been completed successfully</p>
+                </div>
+                
+                <!-- Content -->
+                <div style="padding: 40px 30px;">
+                  <p style="margin: 0 0 30px 0; color: #333; font-size: 16px; line-height: 1.6;">
+                    Hello${sale.student_name ? ' <strong>' + sale.student_name + '</strong>' : ''},
+                  </p>
+                  
+                  <p style="margin: 0 0 20px 0; color: #666; font-size: 15px; line-height: 1.8;">
+                    We appreciate your business at <strong>${businessName}</strong>. Your transaction has been processed, and your receipt details are shown below for your records.
+                  </p>
+                  
+                  <!-- Receipt Details Embedded -->
+                  ${htmlReceipt}
+                  
+                  <!-- Additional Message -->
+                  <div style="margin-top: 30px; padding: 20px; background-color: #f8f9fa; border-left: 4px solid #667eea; border-radius: 4px;">
+                    <p style="margin: 0; color: #555; font-size: 14px; line-height: 1.6;">
+                      <strong style="color: #333;">💡 Need Help?</strong><br>
+                      If you have any questions about your receipt or need assistance, please don't hesitate to contact us or speak with our staff.
+                    </p>
+                  </div>
+                  
+                  <!-- Closing -->
+                  <p style="margin: 30px 0 0 0; color: #666; font-size: 15px;">
+                    Thank you for choosing <strong>${businessName}</strong>. We look forward to serving you again!
+                  </p>
+                </div>
+                
+                <!-- Footer -->
+                <div style="background-color: #f8f9fa; padding: 25px 30px; border-top: 1px solid #e0e0e0; text-align: center;">
+                  <p style="margin: 0 0 10px 0; color: #888; font-size: 13px;">
+                    <strong style="color: #333;">Transaction ID:</strong> ${receiptId}
+                  </p>
+                  <p style="margin: 0 0 15px 0; color: #888; font-size: 13px;">
+                    ${new Date().toLocaleString('en-KE', { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </p>
+                  <div style="border-top: 1px solid #e0e0e0; padding-top: 15px; margin-top: 15px;">
+                    <p style="margin: 5px 0; color: #aaa; font-size: 12px;">
+                      This is an automated email. Please do not reply to this address.
+                    </p>
+                    <p style="margin: 5px 0 0 0; color: #aaa; font-size: 12px;">
+                      © ${new Date().getFullYear()} ${businessName}. All rights reserved.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </body>
+          </html>
+        `
+      };
+      
+      emailTransporter.sendMail(mailOptions, (err, info) => {
+        if (err) {
+          console.error('Email sending error:', err);
+          return res.status(500).json({ 
+            error: 'Failed to send email',
+            details: err.message 
+          });
+        }
+        
+        console.log('Email sent:', info.response);
+        res.json({ 
+          success: true, 
+          message: `Receipt sent successfully to ${email}`,
+          messageId: info.messageId
+        });
+      });
+    });
+  });
+});
+
+// Helper function to generate receipt HTML
+function generateReceiptHTML(data) {
+  const itemsHTML = data.items.map(item => `
+    <tr style="border-bottom: 1px solid #f0f0f0;">
+      <td style="padding: 12px 8px; text-align: left; color: #333; font-size: 14px;">${item.name}</td>
+      <td style="padding: 12px 8px; text-align: center; color: #666; font-size: 14px;">x${item.quantity}</td>
+      <td style="padding: 12px 8px; text-align: right; color: #333; font-weight: 500; font-size: 14px;">KES ${(item.price * item.quantity).toFixed(2)}</td>
+    </tr>
+  `).join('');
+  
+  return `
+    <div style="background-color: #f8f9fa; border-radius: 8px; padding: 25px; margin: 20px 0; border: 1px solid #e0e0e0;">
+      <!-- Receipt Header -->
+      <div style="text-align: center; margin-bottom: 25px; padding-bottom: 20px; border-bottom: 2px solid #667eea;">
+        <h2 style="margin: 0 0 5px 0; color: #333; font-size: 22px; font-weight: 600;">${data.businessName}</h2>
+        <p style="margin: 5px 0 0 0; color: #888; font-size: 13px; letter-spacing: 0.5px;">RECEIPT</p>
+        <p style="margin: 8px 0 0 0; color: #667eea; font-weight: 600; font-size: 14px;">Transaction #${data.receiptId}</p>
+      </div>
+      
+      <!-- Receipt Information -->
+      <div style="margin-bottom: 20px;">
+        <table style="width: 100%; font-size: 13px; color: #666;">
+          <tr style="border-bottom: 1px solid #e0e0e0;">
+            <td style="padding: 8px 0;"><strong style="color: #333;">Date & Time:</strong></td>
+            <td style="padding: 8px 0; text-align: right; color: #333;">${data.date}</td>
+          </tr>
+          ${data.studentName ? `
+          <tr style="border-bottom: 1px solid #e0e0e0;">
+            <td style="padding: 8px 0;"><strong style="color: #333;">Student:</strong></td>
+            <td style="padding: 8px 0; text-align: right; color: #333;">${data.studentName}</td>
+          </tr>
+          ` : ''}
+          <tr>
+            <td style="padding: 8px 0;"><strong style="color: #333;">Payment Method:</strong></td>
+            <td style="padding: 8px 0; text-align: right; color: #333;">
+              ${data.paymentMethod === 'mpesa' ? 'M-Pesa' : 'Cash'}${data.mpesaCode ? ` (${data.mpesaCode})` : ''}
+            </td>
+          </tr>
+        </table>
+      </div>
+      
+      <!-- Items Table -->
+      <div style="margin: 20px 0;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead style="background-color: #667eea; color: white;">
+            <tr>
+              <th style="text-align: left; padding: 10px 8px; font-weight: 600; font-size: 13px;">Item Description</th>
+              <th style="text-align: center; padding: 10px 8px; font-weight: 600; font-size: 13px;">Qty</th>
+              <th style="text-align: right; padding: 10px 8px; font-weight: 600; font-size: 13px;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHTML}
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- Total Section -->
+      <div style="border-top: 2px solid #667eea; border-bottom: 2px solid #667eea; padding: 15px 0; margin: 15px 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 18px; font-weight: 600; color: #333;">TOTAL AMOUNT:</span>
+          <span style="font-size: 24px; font-weight: 700; color: #667eea;">KES ${data.total.toFixed(2)}</span>
+        </div>
+      </div>
+      
+      <!-- Footer Message -->
+      <div style="text-align: center; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
+        <p style="margin: 0; color: #666; font-size: 13px;">✓ Transaction Complete</p>
+        <p style="margin: 5px 0 0 0; color: #888; font-size: 12px;">Please retain this receipt for your records</p>
+      </div>
+    </div>
+  `;
+}
 
 // Health check
 app.get('/api/health', (req, res) => {
